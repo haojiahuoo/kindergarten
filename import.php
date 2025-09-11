@@ -71,10 +71,19 @@ try {
 
         // 插入数据
         $insert_sql = "INSERT INTO kindergarten_persons 
-                      (kindergarten_id, serial_number, child_name, birth_order, child_id, 
-                       father_name, father_id, mother_name, mother_id) 
-                      VALUES (:kindergarten_id, :serial_number, :child_name, :birth_order, :child_id, 
-                              :father_name, :father_id, :mother_name, :mother_id)";
+              (kindergarten_id, serial_number, child_name, birth_order, child_id, 
+               father_name, father_id, mother_name, mother_id) 
+              VALUES (:kindergarten_id, :serial_number, :child_name, :birth_order, :child_id, 
+                      :father_name, :father_id, :mother_name, :mother_id)
+              ON DUPLICATE KEY UPDATE
+                  child_name = VALUES(child_name),
+                  birth_order = VALUES(birth_order),
+                  child_id = VALUES(child_id),
+                  father_name = VALUES(father_name),
+                  father_id = VALUES(father_id),
+                  mother_name = VALUES(mother_name),
+                  mother_id = VALUES(mother_id)";
+
 
         $insert_stmt = $db->prepare($insert_sql);
         $insert_stmt->bindParam(':kindergarten_id', $kindergarten['id']);

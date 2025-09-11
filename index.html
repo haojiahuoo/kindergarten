@@ -679,28 +679,55 @@
             
             showPersonStatus('正在导入数据...', 30);
             document.getElementById('import-btn-person').disabled = true;
-            
-            setTimeout(() => {
-                const hasDuplicates = duplicateIds.size > 0;
-                
-                if (hasDuplicates) {
-                    personExcelData.forEach(person => {
-                        if (person.isDuplicate) person.isDbDuplicate = true;
+
+            fetch('import.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dataToSend)
+            })
+            .then(res => {
+                if (!res.ok) throw new Error("HTTP 状态码: " + res.status);
+                return res.json();
+            })
+            .then(result => {
+                console.log("返回数据:", result);
+
+                if (result.duplicateIds && result.duplicateIds.length > 0) {
+                    // 标红
+                    result.duplicateIds.forEach(id => {
+                        personExcelData.forEach(p => { if (p.childId === id) p.isDbDuplicate = true; });
                     });
+
                     renderPersonPreview();
-                    updatePersonImportButton();
+                    updatePersonImportButton();  // 禁用导入
                     showPersonMessage('warning-message-person', `检测到重复数据，不允许导入`);
                 } else {
-                    showPersonStatus('导入成功', 100);
-                    showPersonMessage('success-message-person', '数据导入成功！');
+                    renderPersonPreview();
+                    updatePersonImportButton();
+
+                    if (result.success) {
+                        showPersonStatus('导入成功', 100);
+                        showPersonMessage('success-message', 
+                            `导入完成！成功: ${result.stats.success}`);
+                    } else {
+                        showPersonStatus('导入失败', 0);
+                        showPersonMessage('error-message-person', '导入失败: ' + result.message);
+                    }
                 }
-                
+
+                // 延时 2 秒再恢复按钮
                 setTimeout(() => {
                     hidePersonStatus();
                     document.getElementById('import-btn-person').disabled = false;
                 }, 2000);
-                
-            }, 1500);
+
+            })
+            .catch(error => {
+                hidePersonStatus();
+                document.getElementById('import-btn-person').disabled = false;
+                showPersonMessage('error-message-person', '请求或处理出错: ' + error.message);
+            });
+
         }
         
         function updatePersonImportButton() {
@@ -791,7 +818,7 @@
             const statusBar = document.getElementById('status-bar-person');
             const statusText = document.getElementById('status-text-person');
             const progressBar = document.getElementById('progress-bar-person');
-            
+            if (!statusBar || !statusText || !progressBar) return;
             statusBar.style.display = 'block';
             statusText.textContent = text;
             progressBar.style.width = progress + '%';
@@ -803,6 +830,7 @@
         
         function showPersonMessage(elementId, message) {
             const element = document.getElementById(elementId);
+            if (!element) return;   // 元素不存在直接返回
             element.textContent = message;
             element.style.display = 'block';
             setTimeout(() => { element.style.display = 'none'; }, 5000);
