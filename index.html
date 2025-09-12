@@ -178,6 +178,19 @@
         .kindergarten-selector select {
             margin-bottom: 0px; /* 从15px减小到8px */
         }
+        #preview-table-person {
+            display: table; /* 必须显示 */
+        }
+        .duplicate-row {
+            background-color: #fdd; /* 红色高亮重复行 */
+        }
+        .warning-row {
+            background-color: #ffeeba;
+        }
+        .success-row {
+            background-color: #d4edda;
+        }
+
     </style>
 </head>
 <body>
@@ -252,7 +265,7 @@
                                 <div class="form-group">
                                     <label>孩次</label>
                                     <select id="birth-order">
-                                        <option value="">请选择胎次</option>
+                                        <option value="">请选择孩次</option>
                                         <option value="2">2</option>
                                         <option value="3">3</option>
                                     </select>
@@ -305,19 +318,24 @@
                         <h2><i class="fas fa-table"></i> 数据预览 - <span id="preview-kindergarten-person"></span></h2>
                         
                         <div class="table-container">
-                            <table id="preview-table-person">
+                            <table id="preview-table-person" class="table">
                                 <thead>
                                     <tr>
                                         <th>序号</th>
                                         <th>孩子姓名</th>
-                                        <th>胎次</th>
+                                        <th>孩次</th>
                                         <th>孩子身份证</th>
                                         <th>父亲姓名</th>
                                         <th>母亲姓名</th>
                                         <th>状态</th>
+                                        <th>操作</th>
                                     </tr>
                                 </thead>
-                                <tbody id="preview-body-person"></tbody>
+                                <tbody id="preview-body-person">
+                                    <tr>
+                                        <td colspan="8" style="text-align:center; color:#999;">暂无数据</td>
+                                    </tr>
+                                </tbody>
                             </table>
                         </div>
                         
@@ -416,13 +434,14 @@
                                 <thead>
                                     <tr>
                                         <th>姓名</th>
-                                        <th>胎次</th>
+                                        <th>孩次</th>
                                         <th>身份证号码</th>
                                         <th>家长姓名</th>
                                         <th>班级</th>
                                         <th>单月费用(元)</th>
                                         <th>出勤天数</th>
                                         <th>验证结果</th>
+                                        <th>操作</th>
                                     </tr>
                                 </thead>
                                 <tbody id="preview-body-monthly"></tbody>
@@ -444,7 +463,9 @@
             </div>
         </div>
     </div>
-
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="person-system.js"></script>
+    <script src="monthly.js"></script>
     <script>
         // 系统切换功能
         document.querySelectorAll('.switch-btn').forEach(btn => {
@@ -466,385 +487,6 @@
                 }
             });
         });
-
-        // 人员信息管理系统的变量和函数
-        let personExcelData = [];
-        let selectedKindergarten = '';
-        let duplicateIds = new Set();
-        
-        // 初始化页面
-        document.addEventListener('DOMContentLoaded', function() {
-            initPersonDragAndDrop();
-            setupPersonEventListeners();
-        });
-        
-        function setupPersonEventListeners() {
-            // 幼儿园选择逻辑
-            document.getElementById('kindergarten-select').addEventListener('change', function(e) {
-                if (e.target.value === 'new') {
-                    document.getElementById('new-kindergarten').style.display = 'block';
-                    selectedKindergarten = '';
-                } else {
-                    document.getElementById('new-kindergarten').style.display = 'none';
-                    selectedKindergarten = e.target.value;
-                }
-                updatePersonImportButton();
-            });
-            
-            document.getElementById('new-kindergarten').addEventListener('input', function(e) {
-                selectedKindergarten = e.target.value;
-                updatePersonImportButton();
-            });
-            
-            // 文件选择逻辑
-            document.getElementById('file-input-person').addEventListener('change', function(e) {
-                handlePersonFileSelect(e.target.files);
-            });
-        }
-        
-        function initPersonDragAndDrop() {
-            const dropArea = document.getElementById('drop-area-person');
-            
-            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                dropArea.addEventListener(eventName, preventDefaults, false);
-                document.body.addEventListener(eventName, preventDefaults, false);
-            });
-            
-            ['dragenter', 'dragover'].forEach(eventName => {
-                dropArea.addEventListener(eventName, highlight, false);
-            });
-            
-            ['dragleave', 'drop'].forEach(eventName => {
-                dropArea.addEventListener(eventName, unhighlight, false);
-            });
-            
-            dropArea.addEventListener('drop', handlePersonDrop, false);
-            
-            function preventDefaults(e) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-            
-            function highlight() {
-                dropArea.classList.add('dragover');
-            }
-            
-            function unhighlight() {
-                dropArea.classList.remove('dragover');
-            }
-            
-            function handlePersonDrop(e) {
-                const dt = e.dataTransfer;
-                const files = dt.files;
-                handlePersonFileSelect(files);
-            }
-        }
-        
-        function handlePersonFileSelect(files) {
-            if (!selectedKindergarten) {
-                showPersonMessage('error-message-person', '请先选择或输入幼儿园名称');
-                return;
-            }
-            
-            if (files.length === 0) return;
-            
-            const file = files[0];
-            if (!file.name.match(/\.(xls|xlsx)$/i)) {
-                showPersonMessage('error-message-person', '请选择Excel文件（.xls 或 .xlsx）');
-                return;
-            }
-            
-            document.getElementById('file-info-person').style.display = 'block';
-            document.getElementById('file-name-person').textContent = file.name;
-            document.getElementById('file-size-person').textContent = formatFileSize(file.size);
-            
-            showPersonStatus('正在读取Excel文件...', 30);
-            
-            const reader = new FileReader();
-            
-            reader.onload = function(e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-                    
-                    processPersonExcelData(jsonData);
-                    showPersonStatus('文件读取完成', 100);
-                    setTimeout(() => hidePersonStatus(), 1000);
-                    
-                } catch (error) {
-                    hidePersonStatus();
-                    showPersonMessage('error-message-person', '文件读取失败: ' + error.message);
-                }
-            };
-            
-            reader.onerror = function() {
-                hidePersonStatus();
-                showPersonMessage('error-message-person', '文件读取错误');
-            };
-            
-            reader.readAsArrayBuffer(file);
-        }
-        
-        function processPersonExcelData(data) {
-            personExcelData = [];
-            duplicateIds.clear();
-            
-            for (let i = 2; i < data.length; i++) {
-                const row = data[i];
-                if (row && row.length >= 8 && row[1]) {
-                    const person = {
-                        serialNumber: row[0] || '',
-                        childName: row[1] || '',
-                        birthOrder: row[2] || '',
-                        childId: String(row[3] || '').trim(),
-                        fatherName: row[4] || '',
-                        fatherId: String(row[5] || '').trim(),
-                        motherName: row[6] || '',
-                        motherId: String(row[7] || '').trim(),
-                        isDuplicate: false,
-                        isDbDuplicate: false
-                    };
-                    
-                    personExcelData.push(person);
-                }
-            }
-            
-            checkPersonDuplicates();
-            renderPersonPreview();
-            document.getElementById('preview-section-person').style.display = 'block';
-            document.getElementById('preview-kindergarten-person').textContent = selectedKindergarten;
-            updatePersonImportButton();
-        }
-        
-        function checkPersonDuplicates() {
-            const idMap = {};
-            
-            personExcelData.forEach(person => {
-                if (person.childId) {
-                    idMap[person.childId] = (idMap[person.childId] || 0) + 1;
-                }
-            });
-            
-            personExcelData.forEach(person => {
-                if (person.childId && idMap[person.childId] > 1) {
-                    person.isDuplicate = true;
-                    duplicateIds.add(person.childId);
-                }
-            });
-        }
-        
-        function renderPersonPreview() {
-            const tbody = document.getElementById('preview-body-person');
-            tbody.innerHTML = '';
-
-            personExcelData.forEach((person, index) => {
-                const row = document.createElement('tr');
-
-                if (person.isDuplicate || person.isDbDuplicate) {
-                    row.classList.add('duplicate-row');
-                }
-
-                row.innerHTML = `
-                    <td>${person.serialNumber}</td>
-                    <td>${person.childName}</td>
-                    <td>${person.birthOrder}</td>
-                    <td>${formatIdNumber(person.childId)}</td>
-                    <td>${person.fatherName}</td>
-                    <td>${person.motherName}</td>
-                    <td>
-                        ${person.isDuplicate ? '<span style="color:red">Excel重复</span>' : 
-                        person.isDbDuplicate ? '<span style="color:red">数据库重复</span>' : '正常'}
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
-            
-            if (duplicateIds.size > 0) {
-                showPersonMessage('warning-message-person', `检测到 ${duplicateIds.size} 个重复的身份证号（红色标记）`);
-            }
-        }
-        
-        function importPersonData() {
-            if (personExcelData.length === 0) {
-                showPersonMessage('error-message-person', '没有数据可导入');
-                return;
-            }
-            
-            const dataToSend = {
-                kindergarten: selectedKindergarten,
-                persons: personExcelData
-            };
-            
-            showPersonStatus('正在导入数据...', 30);
-            document.getElementById('import-btn-person').disabled = true;
-
-            fetch('import.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(dataToSend)
-            })
-            .then(res => {
-                if (!res.ok) throw new Error("HTTP 状态码: " + res.status);
-                return res.json();
-            })
-            .then(result => {
-                console.log("返回数据:", result);
-
-                if (result.duplicateIds && result.duplicateIds.length > 0) {
-                    // 标红
-                    result.duplicateIds.forEach(id => {
-                        personExcelData.forEach(p => { if (p.childId === id) p.isDbDuplicate = true; });
-                    });
-
-                    renderPersonPreview();
-                    updatePersonImportButton();  // 禁用导入
-                    showPersonMessage('warning-message-person', `检测到重复数据，不允许导入`);
-                } else {
-                    renderPersonPreview();
-                    updatePersonImportButton();
-
-                    if (result.success) {
-                        showPersonStatus('导入成功', 100);
-                        showPersonMessage('success-message', 
-                            `导入完成！成功: ${result.stats.success}`);
-                    } else {
-                        showPersonStatus('导入失败', 0);
-                        showPersonMessage('error-message-person', '导入失败: ' + result.message);
-                    }
-                }
-
-                // 延时 2 秒再恢复按钮
-                setTimeout(() => {
-                    hidePersonStatus();
-                    document.getElementById('import-btn-person').disabled = false;
-                }, 2000);
-
-            })
-            .catch(error => {
-                hidePersonStatus();
-                document.getElementById('import-btn-person').disabled = false;
-                showPersonMessage('error-message-person', '请求或处理出错: ' + error.message);
-            });
-
-        }
-        
-        function updatePersonImportButton() {
-            const importBtn = document.getElementById('import-btn-person');
-            importBtn.disabled = !selectedKindergarten || personExcelData.length === 0 || duplicateIds.size > 0;
-        }
-
-        // 单独添加人员功能
-        function addSinglePerson() {
-            const childName = document.getElementById('child-name').value.trim();
-            const birthOrder = document.getElementById('birth-order').value;
-            const childId = document.getElementById('child-id').value.trim();
-            const fatherName = document.getElementById('father-name').value.trim();
-            const fatherId = document.getElementById('father-id').value.trim();
-            const motherName = document.getElementById('mother-name').value.trim();
-            const motherId = document.getElementById('mother-id').value.trim();
-            
-            if (!childName) {
-                showAddMessage('add-error-message', '请输入孩子姓名');
-                return;
-            }
-            
-            if (!birthOrder) {
-                showAddMessage('add-error-message', '请选择胎次');
-                return;
-            }
-            
-            if (!childId || childId.length !== 18) {
-                showAddMessage('add-error-message', '请输入有效的18位身份证号');
-                return;
-            }
-            
-            if (!selectedKindergarten) {
-                showAddMessage('add-error-message', '请先选择托育机构');
-                return;
-            }
-            
-            const isDuplicate = personExcelData.some(person => person.childId === childId);
-            if (isDuplicate) {
-                showAddMessage('add-error-message', '该身份证号已存在，不能重复添加');
-                return;
-            }
-            
-            const newPerson = {
-                serialNumber: personExcelData.length + 1,
-                childName: childName,
-                birthOrder: birthOrder,
-                childId: childId,
-                fatherName: fatherName,
-                fatherId: fatherId,
-                motherName: motherName,
-                motherId: motherId,
-                isDuplicate: false,
-                isDbDuplicate: false
-            };
-            
-            personExcelData.push(newPerson);
-            renderPersonPreview();
-            
-            document.getElementById('child-name').value = '';
-            document.getElementById('birth-order').value = '';
-            document.getElementById('child-id').value = '';
-            document.getElementById('father-name').value = '';
-            document.getElementById('father-id').value = '';
-            document.getElementById('mother-name').value = '';
-            document.getElementById('mother-id').value = '';
-            
-            showAddMessage('add-success-message', '人员添加成功！');
-            updatePersonImportButton();
-        }
-
-        // 辅助函数
-        function formatIdNumber(id) {
-            if (!id) return '';
-            if (id.length !== 18) return id;
-            return id.substring(0, 6) + '****' + id.substring(14);
-        }
-        
-        function formatFileSize(bytes) {
-            if (bytes === 0) return '0 B';
-            const k = 1024;
-            const sizes = ['B', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-        }
-        
-        function showPersonStatus(text, progress) {
-            const statusBar = document.getElementById('status-bar-person');
-            const statusText = document.getElementById('status-text-person');
-            const progressBar = document.getElementById('progress-bar-person');
-            if (!statusBar || !statusText || !progressBar) return;
-            statusBar.style.display = 'block';
-            statusText.textContent = text;
-            progressBar.style.width = progress + '%';
-        }
-        
-        function hidePersonStatus() {
-            document.getElementById('status-bar-person').style.display = 'none';
-        }
-        
-        function showPersonMessage(elementId, message) {
-            const element = document.getElementById(elementId);
-            if (!element) return;   // 元素不存在直接返回
-            element.textContent = message;
-            element.style.display = 'block';
-            setTimeout(() => { element.style.display = 'none'; }, 5000);
-        }
-        
-        function showAddMessage(elementId, message) {
-            const element = document.getElementById(elementId);
-            element.textContent = message;
-            element.style.display = 'block';
-            setTimeout(() => { element.style.display = 'none'; }, 3000);
-        }
-
-        // 月度统计相关函数（保持不变）
-        // ... 原有的月度统计JavaScript代码 ...
     </script>
 </body>
 </html>
