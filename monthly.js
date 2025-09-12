@@ -421,18 +421,26 @@ function updateValidationSummaryMonthly(success, warning, error) {
 
 async function importMonthlyData() {
     try {
-        const response = await fetch('http://localhost:3000/api/importMonthlyData', {
+        const response = await fetch('importMonthlyData.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(excelData.map(p => ({ ...p, year: selectedYear, month: selectedMonth })))
+            body: JSON.stringify(excelData.map(p => ({
+                ...p,
+                status: p.result?.status || 'valid',
+                messages: [...(p.result?.errors || []), ...(p.result?.warnings || [])].join('; ')
+            })))
         });
+
         const data = await response.json();
-        if (data.success) showMessage('success-message-monthly', '数据已成功导入数据库');
-        else showMessage('error-message-monthly', '导入失败');
+
+        if (data.success) showMessage('success-message-monthly', data.message);
+        else showMessage('error-message-monthly', data.message);
+
     } catch (err) {
         showMessage('error-message-monthly', '导入失败: ' + err.message);
     }
 }
+
 
 function updateButtons() {
     const hasData = excelData.length > 0;
