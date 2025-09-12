@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initDragAndDrop();
     setupEventListeners();
     updateSelectedDate();
+    document.getElementById('preview-section-monthly').style.display = 'block';
 });
 
 function setupEventListeners() {
@@ -231,10 +232,10 @@ async function validateData() {
 
         // 数据库检查
         if (!await checkChildInDatabase(person.name, person.idNumber)) {
-            result.errors.push(`身份信息库中无此幼儿`);
+            result.errors.push(`信息库中无此幼儿`);
         }
         if (!await checkBirthOrderConsistency(person.name, person.idNumber, person.birthOrder)) {
-            result.errors.push(`孩次与身份信息库中不符`);
+            result.errors.push(`孩次与信息库中不符`);
         }
 
         // 年龄检查
@@ -245,12 +246,12 @@ async function validateData() {
         // 费用检查
         if (!checkFeeStandard(person.className, person.monthlyFee)) {
             const standard = getFeeStandard(person.className);
-            result.errors.push(`费用超标（标准: ${standard}元）`);
+            result.errors.push(`收费超标，不应超（标准: ${standard}元）`);
         }
         if (person.paymentAmount > 0 && person.paymentMonths > 0) {
             const calculatedFee = person.paymentAmount / person.paymentMonths;
             if (Math.abs(calculatedFee - person.monthlyFee) > 1) {
-                result.errors.push(`费用计算错误（应为 ${calculatedFee.toFixed(0)}元）`);
+                result.errors.push(`费用计算错误`);
             }
         }
 
@@ -267,7 +268,7 @@ async function validateData() {
     }
 
     renderPreview();
-    updateValidationSummary(successCount, warningCount, errorCount);
+    updateValidationSummaryMonthly(successCount, warningCount, errorCount);
     showStatus('验证完成', 100);
     setTimeout(() => hideStatus(), 1000);
     updateButtons();
@@ -306,18 +307,24 @@ async function checkBirthOrderConsistency(name, idNumber, birthOrder) {
 }
 
 
-// 保留原有函数
 function checkAgeLimit(idNumber, year, month) {
     if (!idNumber || idNumber.length !== 18) return 'invalid';
-    const birthYear = parseInt(idNumber.substring(6, 10));
-    const birthMonth = parseInt(idNumber.substring(10, 12));
-    const birthDay = parseInt(idNumber.substring(12, 14));
-    let age = year - birthYear;
-    if (month < birthMonth || (month === birthMonth && new Date().getDate() < birthDay)) age--;
-    if (age > 3) return 'exceeded';
-    if (age === 3 && month === birthMonth) return 'reaching';
-    return 'valid';
+
+    const birthYear = parseInt(idNumber.substring(6, 10), 10);
+    const birthMonth = parseInt(idNumber.substring(10, 12), 10);
+
+    // 计算年龄（基于年份和月份）
+    let ageInMonths = (year - birthYear) * 12 + (month - birthMonth);
+    
+    if (ageInMonths > 36) {
+        return 'exceeded'; // 超过36个月（3年）
+    } else if (ageInMonths === 36) {
+        return 'reaching'; // 正好36个月（3年）
+    } else {
+        return 'valid'; // 小于36个月
+    }
 }
+
 
 function getFeeStandard(className) {
     const standards = { '托大班': 1400, '托小班': 1700, '乳儿班': 2100 };
@@ -347,26 +354,70 @@ function renderPreview() {
             <td class="compact-cell">${person.birthOrder}</td>
             <td class="compact-cell col-id">${person.idNumber || ''}</td>
             <td class="compact-cell">${person.parentName}</td>
+            <td class="compact-cell">${person.productType}</td>
             <td class="compact-cell">${person.className}</td>
+            <td class="compact-cell">${person.entryDate}</td>
+            <td class="compact-cell">${person.paymentDate}</td>
+            <td class="compact-cell">${person.paymentAmount}</td>
+            <td class="compact-cell">${person.paymentMonths}</td>
             <td class="compact-cell">${person.monthlyFee ? person.monthlyFee.toFixed(0) : ''}</td>
             <td class="compact-cell">${person.attendanceDays || ''}</td>
-            <td class="compact-cell tooltip" data-tooltip="${allMessages}">
-                <span class="status-${result.status}">
+            <td class="compact-cell">
+                <span class="status-${result.status}" title="${allMessages}">
                     ${allMessages.substring(0, 25)}${allMessages.length > 25 ? '...' : ''}
                 </span>
             </td>
+            <td class="compact-cell" style="text-align:center;">
+                <button class="delete-btn" onclick="deleteRow(this)">删除</button>
+            </td>
         `;
         tbody.appendChild(row);
+
     });
 }
-
-function updateValidationSummary(success, warning, error) {
-    document.getElementById('validation-summary').style.display = 'block';
-    document.getElementById('total-count').textContent = excelData.length;
-    document.getElementById('success-count').textContent = success;
-    document.getElementById('warning-count').textContent = warning;
-    document.getElementById('error-count').textContent = error;
+function deleteRow(btn) {
+    const row = btn.closest('tr');
+    row.remove();
 }
+
+
+/**
+ * 安全更新验证结果摘要（针对月度统计）
+ * @param {number} success 成功条数
+ * @param {number} warning 警告条数
+ * @param {number} error 错误条数
+ */
+function updateValidationSummaryMonthly(success, warning, error) {
+    console.log('函数被调用了', success, warning, error); // <- 放在这里
+    const summary = document.getElementById('validation-summary-monthly');
+    if (!summary) return;
+
+    summary.style.display = 'block';
+
+    const totalCountEl = document.getElementById('total-count-monthly');
+    const successEl = document.getElementById('success-count-monthly');
+    const warningEl = document.getElementById('warning-count-monthly');
+    const errorEl = document.getElementById('error-count-monthly');
+
+    const total = (typeof excelData !== 'undefined' && Array.isArray(excelData)) ? excelData.length : 0;
+
+    if (totalCountEl) totalCountEl.textContent = total;
+    if (successEl) {
+        successEl.textContent = success;
+        successEl.style.color = '#28a745'; // 绿色
+    }
+    if (warningEl) {
+        warningEl.textContent = warning;
+        warningEl.style.color = '#ffc107'; // 黄色
+    }
+    if (errorEl) {
+        errorEl.textContent = error;
+        errorEl.style.color = '#f44336'; // 红色
+    }
+}
+
+
+
 
 async function importMonthlyData() {
     try {

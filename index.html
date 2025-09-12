@@ -9,7 +9,7 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Microsoft YaHei', sans-serif; }
         body { background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d); min-height: 100vh; padding: 20px; }
-        .container { max-width: 1800px; margin: 0 auto; background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; }
+        .container { max-width: 1800px; margin: 0 auto; background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow-x: auto; }
         
         /* 头部样式 */
         header { background: linear-gradient(to right, #2c3e50, #4ca1af); color: white; padding: 20px; text-align: center; position: relative; }
@@ -46,7 +46,7 @@
         
         .preview-section { display: none; }
         .table-container { max-height: 500px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; }
-        table { width: 100%; border-collapse: collapse; }
+        table { width: 100%; border-collapse: collapse;  white-space: nowrap;}
         th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; font-size: 14px; }
         th { background: #4ca1af; color: white; position: sticky; top: 0; }
         tr:nth-child(even) { background: #f9f9f9; }
@@ -70,7 +70,7 @@
         .file-info { background: #e9f7fe; padding: 12px; border-radius: 6px; margin: 10px 0; display: none; }
         
         /* 月度统计特有样式 */
-        .date-selector { display: flex; gap: 8px; margin-bottom: 15px; align-items: center; }
+        .date-selector { display: flex; gap: 8px; margin-top: 15px; margin-bottom: 15px; align-items: center; }
         .date-selector .date-group { flex: 1; display: flex; align-items: center; background: white; border: 2px solid #4ca1af; border-radius: 8px; overflow: hidden; }
         .date-selector .date-label { padding: 0 12px; background: #4ca1af; color: white; font-weight: bold; min-width: 60px; text-align: center; }
         .date-selector select { flex: 1; padding: 10px; border: none; outline: none; background: white; appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234ca1af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 10px center; background-size: 16px; padding-right: 35px; }
@@ -98,6 +98,7 @@
             background: #f9f9f9;
             border-radius: 10px;
             padding: 20px;
+            padding-bottom: 0px;
             margin-bottom: 20px;
             border: 1px solid #e0e0e0;
         }
@@ -145,12 +146,17 @@
         }
 
         .kindergarten-selector select {
-            
+            appearance: none;
             padding: 12px;
             border: 2px solid #4ca1af;
             border-radius: 8px;
             font-size: 16px;
             background: white;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234ca1af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat; 
+            background-position: right 10px center; 
+            background-size: 16px; 
+            padding-right: 35px;
         }
 
         .kindergarten-selector input {
@@ -189,6 +195,46 @@
         }
         .success-row {
             background-color: #d4edda;
+        }
+
+        /* 验证结果颜色 */
+        .status-success {
+            color: #28a745;  /* 绿色 */
+            font-weight: bold;
+        }
+        .status-warning {
+            color: #dfa802;  /* 黄色 */
+            font-weight: bold;
+        }
+        .status-error {
+            color: #f44336;  /* 红色 */
+            font-weight: bold;
+        }
+
+        /* 操作按钮 */
+        .delete-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .delete-btn:hover {
+            opacity: 0.9;
+        }
+        #success-count {
+            color: #28a745;  /* 绿色 */
+            font-weight: bold;
+        }
+        #warning-count {
+            color: #ffc107;  /* 黄色 */
+            font-weight: bold;
+        }
+        #error-count {
+            color: #f44336;  /* 红色 */
+            font-weight: bold;
         }
 
     </style>
@@ -437,8 +483,13 @@
                                         <th>孩次</th>
                                         <th>身份证号码</th>
                                         <th>家长姓名</th>
+                                        <th>托育产品</th>
                                         <th>班级</th>
-                                        <th>单月费用(元)</th>
+                                        <th>入托时间</th>
+                                        <th>本次缴费时间</th>
+                                        <th>本次缴费</th>
+                                        <th>费用时长(月)</th>
+                                        <th>单月费用</th>
                                         <th>出勤天数</th>
                                         <th>验证结果</th>
                                         <th>操作</th>
@@ -458,6 +509,13 @@
                         <div class="message success" id="success-message-monthly"></div>
                         <div class="message error" id="error-message-monthly"></div>
                         <div class="message warning" id="warning-message-monthly"></div>
+                        <!-- 新增：验证摘要显示 -->
+                        <div id="validation-summary-monthly" style="display:none; padding:10px; margin-top:10px; border:1px solid #4ca1af; border-radius:6px; background:#e9f7fe;">
+                            <strong>总条数:</strong> <span id="total-count-monthly">0</span> &nbsp;
+                            <strong>成功:</strong> <span id="success-count-monthly">0</span> &nbsp;
+                            <strong>警告:</strong> <span id="warning-count-monthly">0</span> &nbsp;
+                            <strong>错误:</strong> <span id="error-count-monthly">0</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -467,26 +525,43 @@
     <script src="person-system.js"></script>
     <script src="monthly.js"></script>
     <script>
-        // 系统切换功能
+        // 页面加载时恢复上一次的系统
+        window.addEventListener("load", () => {
+            const lastSystem = localStorage.getItem("currentSystem") || "person"; // 默认是人员管理
+            switchSystem(lastSystem);
+        });
+
+        // 封装切换逻辑
+        function switchSystem(system) {
+            // 按钮高亮
+            document.querySelectorAll('.switch-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector(`.switch-btn[data-system="${system}"]`).classList.add('active');
+
+            // 内容区切换
+            document.querySelectorAll('.system-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(system + '-system').classList.add('active');
+
+            // 修改副标题
+            const subtitle = document.getElementById('system-subtitle');
+            if (system === 'person') {
+                subtitle.textContent = '支持多个托育机构的数据管理';
+            } else {
+                subtitle.textContent = '二孩、三孩入托月度统计表验证与导入';
+            }
+
+            // 保存当前选中的 system
+            localStorage.setItem("currentSystem", system);
+        }
+
+        // 点击事件
         document.querySelectorAll('.switch-btn').forEach(btn => {
             btn.addEventListener('click', function() {
-                document.querySelectorAll('.switch-btn').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-                
-                const system = this.dataset.system;
-                document.querySelectorAll('.system-content').forEach(content => {
-                    content.classList.remove('active');
-                });
-                document.getElementById(system + '-system').classList.add('active');
-                
-                const subtitle = document.getElementById('system-subtitle');
-                if (system === 'person') {
-                    subtitle.textContent = '支持多个托育机构的数据管理';
-                } else {
-                    subtitle.textContent = '二孩、三孩入托月度统计表验证与导入';
-                }
+                switchSystem(this.dataset.system);
             });
         });
     </script>
+
 </body>
 </html>
