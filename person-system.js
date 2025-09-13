@@ -5,10 +5,46 @@ let duplicateIds = new Set();
 
 // 初始化页面
 document.addEventListener('DOMContentLoaded', function() {
+    loadKindergarten();
     initPersonDragAndDrop();
     setupPersonEventListeners();
     document.getElementById('preview-section-person').style.display = 'block';
 });
+
+async function loadKindergarten() {
+    try {
+        const response = await fetch('http://localhost/kindergarten/getKindergartens.php');
+        const data = await response.json();
+
+        if (data.success) {
+            const select = document.getElementById('kindergarten-select');
+            select.innerHTML = ''; // 清空旧数据
+
+            // 添加默认项
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = '-- 请选择托育机构 --';
+            select.appendChild(defaultOption);
+
+            // 添加数据库里的幼儿园
+            data.kindergartens.forEach(k => {
+                const option = document.createElement('option');
+                option.value = k.id;
+                option.textContent = k.name;
+                select.appendChild(option);
+            });
+
+            // 添加 “新建幼儿园” 选项
+            const newOption = document.createElement('option');
+            newOption.value = 'new';
+            newOption.textContent = '++新建托育机构';
+            select.appendChild(newOption);
+        }
+    } catch (err) {
+        console.error("加载托育机构失败", err);
+    }
+}
+
 
 function setupPersonEventListeners() {
     // 幼儿园选择逻辑

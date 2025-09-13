@@ -260,7 +260,7 @@
                         <div class="panel" style="flex: 1;">
                             <h2><i class="fas fa-school"></i> 选择托育机构</h2>
                             <div class="kindergarten-selector">
-                                <select id="kindergarten-select">
+                                <select id="kindergarten-select"  onclick="loadKindergartens()">
                                     <option value="">-- 请选择托育机构 --</option>
                                     <option value="风貌街实验幼儿园">风貌街实验幼儿园</option>
                                     <option value="阳光幼儿园">阳光幼儿园</option>
@@ -408,7 +408,7 @@
                     <div class="panel">
                         <h2><i class="fas fa-school"></i> 选择托育机构</h2>
                         <div class="kindergarten-selector">
-                            <select id="kindergarten-select-monthly">
+                            <select id="kindergarten-select-monthly" onclick="loadKindergartens()">
                                 <option value="">-- 请选择托育机构 --</option>
                                 <option value="风貌街实验幼儿园">风貌街实验幼儿园</option>
                                 <option value="阳光幼儿园">阳光幼儿园</option>
@@ -461,7 +461,7 @@
                                 <span id="file-name-monthly">文件名.xlsx</span>
                             </div>
                             
-                            <button class="btn btn-success" id="validate-btn-monthly" disabled onclick="validateMonthlyData()">
+                            <button class="btn btn-success" id="validate-btn-monthly" disabled onclick="validateData()">
                                 <i class="fas fa-check-circle"></i> 验证数据
                             </button>
                             <button class="btn" id="import-btn-monthly" disabled onclick="importMonthlyData()">

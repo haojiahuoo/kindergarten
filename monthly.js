@@ -5,11 +5,46 @@ let validationResults = [];
 
 // 初始化页面
 document.addEventListener('DOMContentLoaded', function() {
+    loadKindergartens();
     initDragAndDrop();
     setupEventListeners();
     updateSelectedDate();
     document.getElementById('preview-section-monthly').style.display = 'block';
 });
+
+async function loadKindergartens() {
+    try {
+        const response = await fetch('http://localhost/kindergarten/getKindergartens.php');
+        const data = await response.json();
+
+        if (data.success) {
+            const select = document.getElementById('kindergarten-select-monthly');
+            select.innerHTML = ''; // 清空旧数据
+
+            // 添加默认项
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = '-- 请选择托育机构 --';
+            select.appendChild(defaultOption);
+
+            // 添加数据库里的幼儿园
+            data.kindergartens.forEach(k => {
+                const option = document.createElement('option');
+                option.value = k.id;
+                option.textContent = k.name;
+                select.appendChild(option);
+            });
+
+            // 添加 “新建幼儿园” 选项
+            const newOption = document.createElement('option');
+            newOption.value = 'new';
+            newOption.textContent = '++新建托育机构';
+            select.appendChild(newOption);
+        }
+    } catch (err) {
+        console.error("加载托育机构失败", err);
+    }
+}
 
 function setupEventListeners() {
     document.getElementById('year-select').addEventListener('change', async function(e) {
@@ -230,14 +265,16 @@ async function validateData() {
         const person = excelData[index];
         const result = { index, errors: [], warnings: [], status: 'success' };
 
-        // 数据库检查
-        if (!await checkChildInDatabase(person.name, person.idNumber)) {
-            result.errors.push(`信息库中无此幼儿`);
-        }
-        if (!await checkBirthOrderConsistency(person.name, person.idNumber, person.birthOrder)) {
-            result.errors.push(`孩次与信息库中不符`);
-        }
-
+        // 数据库检查（区分全库和幼儿园匹配）
+        const dbCheck = await checkChildInDatabase(person.name, person.idNumber);
+        if (!dbCheck.ok) {
+            result.errors.push(dbCheck.message);
+        } 
+        // 检查孩次
+        else if (!await checkBirthOrderConsistency(person.name, person.idNumber, person.birthOrder)) {
+                    result.errors.push(`孩次与信息库中不符`);
+                 }
+    
         // 年龄检查
         const ageCheck = checkAgeLimit(person.idNumber, selectedYear, selectedMonth);
         if (ageCheck === 'exceeded') result.errors.push(`已超过3周岁`);
@@ -255,14 +292,22 @@ async function validateData() {
             }
         }
 
-        // 出勤天数
+        // 出勤天数检查
         if (person.attendanceDays > 0 && person.attendanceDays < halfWorkdays) {
             result.errors.push(`出勤不足（需${halfWorkdays}天）`);
         }
 
-        if (result.errors.length > 0) { result.status = 'error'; errorCount++; }
-        else if (result.warnings.length > 0) { result.status = 'warning'; warningCount++; }
-        else { result.status = 'success'; successCount++; }
+        // 状态统计
+        if (result.errors.length > 0) {
+            result.status = 'error';
+            errorCount++;
+        } else if (result.warnings.length > 0) {
+            result.status = 'warning';
+            warningCount++;
+        } else {
+            result.status = 'success';
+            successCount++;
+        }
 
         validationResults.push(result);
     }
@@ -275,21 +320,37 @@ async function validateData() {
 }
 
 
+
 // 后端比对
 async function checkChildInDatabase(name, idNumber) {
+    const selectedKindergarten = document.getElementById('kindergarten-select-monthly').value;
     try {
         const res = await fetch('http://localhost/kindergarten/checkChild.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, idNumber })
+            body: JSON.stringify({ name, idNumber, kindergartenId: selectedKindergarten })
         });
         const data = await res.json();
-        return data.success && data.exists;
+        
+        if (!data.success) return { ok: false, message: "服务器错误" };
+
+        if (data.exists) {
+            return { ok: true };  // 存在且幼儿园匹配
+        } else {
+            if (data.reason === "not_found") {
+                return { ok: false, message: "信息库中无此幼儿" };
+            } else if (data.reason === "wrong_kindergarten") {
+                return { ok: false, message: "此幼儿不在当前幼儿园" };
+            } else {
+                return { ok: false, message: "未知错误" };
+            }
+        }
     } catch (err) {
         console.error(err);
-        return false;
+        return { ok: false, message: "网络请求失败" };
     }
 }
+
 
 async function checkBirthOrderConsistency(name, idNumber, birthOrder) {
     try {
@@ -388,7 +449,6 @@ function deleteRow(btn) {
  * @param {number} error 错误条数
  */
 function updateValidationSummaryMonthly(success, warning, error) {
-    console.log('函数被调用了', success, warning, error); // <- 放在这里
     const summary = document.getElementById('validation-summary-monthly');
     if (!summary) return;
 
@@ -416,26 +476,45 @@ function updateValidationSummaryMonthly(success, warning, error) {
     }
 }
 
-
-
-
 async function importMonthlyData() {
     try {
+        
+        const selectedKindergarten = document.getElementById('kindergarten-select-monthly').value;
+        // 获取选择的托育机构名称
+        let selectedKindergartenName = document.getElementById("kindergarten-select-monthly").options[
+            document.getElementById("kindergarten-select-monthly").selectedIndex
+        ].text;
+        // 取年份
+        let year = document.getElementById("year-select").value;
+        // 取月份
+        let month = document.getElementById("month-select").value;
+        // 拼成 "YYYY-MM" 格式（不足两位的月份补 0）
+        let selectedYearMonth = year + "-" + month.padStart(2, "0");
         const response = await fetch('importMonthlyData.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(excelData.map(p => ({
-                ...p,
-                status: p.result?.status || 'valid',
-                messages: [...(p.result?.errors || []), ...(p.result?.warnings || [])].join('; ')
-            })))
+            body: JSON.stringify(excelData.map(p => ({ ...p, year: selectedYear, month: selectedMonth, kindergartenId: selectedKindergarten, kindergartenName: selectedKindergartenName, yearMonth: selectedYearMonth})))
         });
-
         const data = await response.json();
+        console.log(data);
 
-        if (data.success) showMessage('success-message-monthly', data.message);
-        else showMessage('error-message-monthly', data.message);
+         // 清空消息
+        document.getElementById('success-message-monthly').innerHTML = '';
+        document.getElementById('error-message-monthly').innerHTML = '';
 
+        if (data.successCount > 0) {
+        showMessage('success-message-monthly', `成功导入 ${data.successCount} 条`);
+        }
+
+        if (data.errors && data.errors.length > 0) {
+            // 循环显示每条错误
+            let errorHtml = '<ul>';
+            data.errors.forEach(err => {
+                errorHtml += `<li>${err}</li>`;
+            });
+            errorHtml += '</ul>';
+            document.getElementById('error-message-monthly').innerHTML = errorHtml;
+        }
     } catch (err) {
         showMessage('error-message-monthly', '导入失败: ' + err.message);
     }
