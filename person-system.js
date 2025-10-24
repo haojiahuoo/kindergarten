@@ -54,7 +54,7 @@ function setupPersonEventListeners() {
             selectedKindergarten = '';
         } else {
             document.getElementById('new-kindergarten').style.display = 'none';
-            selectedKindergarten = e.target.value;
+            selectedKindergarten = e.target.options[e.target.selectedIndex].text;
         }
         updatePersonImportButton();
     });

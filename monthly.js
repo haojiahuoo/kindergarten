@@ -398,7 +398,20 @@ function checkFeeStandard(className, monthlyFee) {
     return standard === 0 || monthlyFee <= standard;
 }
 
-function calculateWorkdays(year, month) { return 22; }
+
+// 计算指定年月的工作日数量（自动除去节假日和周末）
+function calculateWorkdays(year, month) {
+    let count = 0;
+    const daysInMonth = new Date(year, month, 0).getDate(); // month 是 1–12
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dt = new Date(year, month - 1, d);
+        if (ChineseHolidays.isWorkday(dt)) {
+            count++;
+        }
+    }
+    return count;
+}
 
 function renderPreview() {
     const tbody = document.getElementById('preview-body-monthly');
@@ -503,7 +516,12 @@ async function importMonthlyData() {
         document.getElementById('error-message-monthly').innerHTML = '';
 
         if (data.successCount > 0) {
-        showMessage('success-message-monthly', `成功导入 ${data.successCount} 条`);
+            showMessage('success-message-monthly', `成功导入 ${data.successCount} 条`);
+            
+            // 自动打印导入的内容
+            if (data.importedData && data.importedData.length > 0) {
+                printImportedData(data.importedData);
+            }
         }
 
         if (data.errors && data.errors.length > 0) {
@@ -519,7 +537,6 @@ async function importMonthlyData() {
         showMessage('error-message-monthly', '导入失败: ' + err.message);
     }
 }
-
 
 function updateButtons() {
     const hasData = excelData.length > 0;
@@ -544,4 +561,65 @@ function showMessage(elementId, message) {
     element.textContent = message;
     element.style.display = 'block';
     setTimeout(() => { element.style.display = 'none'; }, 5000);
+}
+
+function printImportedData(rows) {
+    let html = `
+    <table border="1" style="border-collapse: collapse; width: 100%;">
+        <thead>
+            <tr>
+                <th>序号</th>
+                <th>孩子姓名</th>
+                <th>孩次</th>
+                <th>身份证号</th>
+                <th>托育机构</th>
+                <th>父亲姓名</th>
+                <th>母亲姓名</th>
+                <th>录入时间</th>
+                <th>状态</th>
+            </tr>
+        </thead>
+        <tbody>
+    `;
+
+    rows.forEach((row, index) => {
+        html += `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${row.name || ''}</td>
+                <td>${row.birthOrder || ''}</td>
+                <td>${row.idNumber || ''}</td>
+                <td>${row.kindergartenName || ''}</td>
+                <td>${row.fatherName || ''}</td>
+                <td>${row.motherName || ''}</td>
+                <td>${row.entryDate || ''}</td>
+                <td>${row.status || ''}</td>
+            </tr>
+        `;
+    });
+
+    html += '</tbody></table>';
+
+    const printWindow = window.open('', '', 'width=1000,height=600');
+    printWindow.document.write('<html><head><title>导入内容</title></head><body>');
+    printWindow.document.write(html);
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+    printWindow.print();
+}
+
+function exportToXLS(rows) {
+    let table = '<table border="1"><tr><th>序号</th><th>孩子姓名</th>...';
+    rows.forEach((row, i) => {
+        table += `<tr><td>${i+1}</td><td>${row.name}</td>...</tr>`;
+    });
+    table += '</table>';
+
+    const blob = new Blob([table], { type: 'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '导入数据.xls';
+    a.click();
+    URL.revokeObjectURL(url);
 }

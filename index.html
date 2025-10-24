@@ -1,567 +1,1226 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>东昌府区托育补贴综合管理系统</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="libs/fontawesome/css/all.min.css" />
+    <script src="libs/xlsx.full.min.js"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Microsoft YaHei', sans-serif; }
-        body { background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d); min-height: 100vh; padding: 20px; }
-        .container { max-width: 1800px; margin: 0 auto; background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow-x: auto; }
-        
-        /* 头部样式 */
-        header { background: linear-gradient(to right, #2c3e50, #4ca1af); color: white; padding: 20px; text-align: center; position: relative; }
-        h1 { font-size: 28px; margin-bottom: 10px; }
-        .system-switcher { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); display: flex; gap: 10px; }
-        .switch-btn { background: rgba(255,255,255,0.2); border: 2px solid white; color: white; padding: 8px 16px; border-radius: 20px; cursor: pointer; transition: all 0.3s; }
-        .switch-btn:hover { background: rgba(255,255,255,0.3); }
-        .switch-btn.active { background: white; color: #2c3e50; }
-        
-        /* 主内容区 */
-        .main-content { display: flex; padding: 20px; gap: 20px; }
-        .left-panel { flex: 1; min-width: 350px; }
-        .right-panel { flex: 2; min-width: 500px; }
-        
-        .panel { background: #f9f9f9; border-radius: 10px; padding: 20px; margin-bottom: 20px; border: 1px solid #e0e0e0; }
-        
-        .kindergarten-selector { margin-bottom: 20px; padding-bottom: 0px;}
-        .kindergarten-selector select, 
-        .kindergarten-selector input { width: 100%; padding: 12px; border: 2px solid #4ca1af; border-radius: 8px; font-size: 16px;}
-        
-        .upload-section { text-align: center; }
-        .upload-area { padding: 30px; border: 3px dashed #4ca1af; border-radius: 10px; margin: 15px 0; background: #f0f9ff; cursor: pointer; transition: all 0.3s; }
-        .upload-area:hover { background: #e0f2ff; border-color: #2c3e50; }
-        .upload-area.dragover { background: #d4edff; border-color: #1a2a6c; transform: scale(1.02); }
-        .upload-icon { font-size: 40px; color: #4ca1af; margin-bottom: 10px; }
-        .file-input-wrapper { position: relative; overflow: hidden; display: inline-block; }
-        .file-input-wrapper input[type=file] { position: absolute; left: 0; top: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
-        
-        .btn { background: #1a2a6c; color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; margin: 5px; font-size: 14px; transition: all 0.3s; }
-        .btn:hover { opacity: 0.9; transform: translateY(-2px); }
-        .btn-success { background: #28a745; }
-        .btn-warning { background: #ff9800; }
-        .btn:disabled { background: #cccccc; cursor: not-allowed; }
-        
-        .preview-section { display: none; }
-        .table-container { max-height: 500px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; }
-        table { width: 100%; border-collapse: collapse;  white-space: nowrap;}
-        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; font-size: 14px; }
-        th { background: #4ca1af; color: white; position: sticky; top: 0; }
-        tr:nth-child(even) { background: #f9f9f9; }
-        tr:hover { background: #f1f1f1; }
-        
-        tr.duplicate-row td {
-            background: #ff4d4d !important;
-            color: #fff !important;
-            font-weight: bold;
-        }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: "Microsoft YaHei", sans-serif;
+      }
+      body {
+        background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+        min-height: 100vh;
+        padding: 20px;
+      }
+      .container {
+        max-width: 1800px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        overflow-x: auto;
+      }
 
-        .message { padding: 12px; border-radius: 6px; margin: 10px 0; display: none; }
-        .success { background: #4CAF50; color: white; }
-        .error { background: #f44336; color: white; }
-        .warning { background: #ff9800; color: white; }
-        
-        .status-bar { background: #f8f9fa; padding: 12px; border-radius: 6px; margin: 15px 0; border-left: 4px solid #4ca1af; }
-        .progress-bar { height: 10px; background: #e9ecef; border-radius: 5px; margin-top: 10px; overflow: hidden; }
-        .progress { height: 100%; background: linear-gradient(to right, #4ca1af, #1a2a6c); width: 0%; transition: width 0.5s; }
-        
-        .file-info { background: #e9f7fe; padding: 12px; border-radius: 6px; margin: 10px 0; display: none; }
-        
-        /* 月度统计特有样式 */
-        .date-selector { display: flex; gap: 8px; margin-top: 15px; margin-bottom: 15px; align-items: center; }
-        .date-selector .date-group { flex: 1; display: flex; align-items: center; background: white; border: 2px solid #4ca1af; border-radius: 8px; overflow: hidden; }
-        .date-selector .date-label { padding: 0 12px; background: #4ca1af; color: white; font-weight: bold; min-width: 60px; text-align: center; }
-        .date-selector select { flex: 1; padding: 10px; border: none; outline: none; background: white; appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234ca1af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 10px center; background-size: 16px; padding-right: 35px; }
-        /* 月度统计管理系统收窄 */
-        #monthly-system .left-panel {
-            flex: 0.5; /* 收窄1倍 */
-            min-width: 250px;
-            max-width: 350px;
+      /* 头部样式 */
+      header {
+        background: linear-gradient(to right, #2c3e50, #4ca1af);
+        color: white;
+        padding: 20px;
+        text-align: center;
+        position: relative;
+      }
+      h1 {
+        font-size: 28px;
+        margin-bottom: 10px;
+      }
+      .system-switcher {
+        position: absolute;
+        left: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        display: flex;
+        gap: 10px;
+      }
+      .switch-btn {
+        background: rgba(255, 255, 255, 0.2);
+        border: 2px solid white;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+      .switch-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+      .switch-btn.active {
+        background: white;
+        color: #2c3e50;
+      }
+
+      /* 主内容区 */
+      .main-content {
+        display: flex;
+        padding: 20px;
+        gap: 20px;
+      }
+      .left-panel {
+        flex: 1;
+        min-width: 350px;
+      }
+      .right-panel {
+        flex: 2;
+        min-width: 500px;
+      }
+
+      .panel {
+        background: #f9f9f9;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid #e0e0e0;
+      }
+
+      .kindergarten-selector {
+        margin-bottom: 20px;
+        padding-bottom: 0px;
+      }
+      .kindergarten-selector select,
+      .kindergarten-selector input {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #4ca1af;
+        border-radius: 8px;
+        font-size: 16px;
+      }
+
+      .upload-section {
+        text-align: center;
+      }
+      .upload-area {
+        padding: 30px;
+        border: 3px dashed #4ca1af;
+        border-radius: 10px;
+        margin: 15px 0;
+        background: #f0f9ff;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+      .upload-area:hover {
+        background: #e0f2ff;
+        border-color: #2c3e50;
+      }
+      .upload-area.dragover {
+        background: #d4edff;
+        border-color: #1a2a6c;
+        transform: scale(1.02);
+      }
+      .upload-icon {
+        font-size: 40px;
+        color: #4ca1af;
+        margin-bottom: 10px;
+      }
+      .file-input-wrapper {
+        position: relative;
+        overflow: hidden;
+        display: inline-block;
+      }
+      .file-input-wrapper input[type="file"] {
+        position: absolute;
+        left: 0;
+        top: 0;
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+      }
+
+      .btn {
+        background: #1a2a6c;
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        margin: 5px;
+        font-size: 14px;
+        transition: all 0.3s;
+      }
+      .btn:hover {
+        opacity: 0.9;
+        transform: translateY(-2px);
+      }
+      .btn-success {
+        background: #28a745;
+      }
+      .btn-warning {
+        background: #ff9800;
+      }
+      .btn:disabled {
+        background: #cccccc;
+        cursor: not-allowed;
+      }
+
+      .preview-section {
+        display: none;
+      }
+      .table-container {
+        max-height: 500px;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        white-space: nowrap;
+      }
+      th,
+      td {
+        padding: 10px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+        font-size: 14px;
+      }
+      th {
+        background: #4ca1af;
+        color: white;
+        position: sticky;
+        top: 0;
+      }
+      tr:nth-child(even) {
+        background: #f9f9f9;
+      }
+      tr:hover {
+        background: #f1f1f1;
+      }
+
+      tr.duplicate-row td {
+        background: #ff4d4d !important;
+        color: #fff !important;
+        font-weight: bold;
+      }
+
+      .message {
+        padding: 12px;
+        border-radius: 6px;
+        margin: 10px 0;
+        display: none;
+      }
+      .success {
+        background: #4caf50;
+        color: white;
+      }
+      .error {
+        background: #f44336;
+        color: white;
+      }
+      .warning {
+        background: #ff9800;
+        color: white;
+      }
+
+      .status-bar {
+        background: #f8f9fa;
+        padding: 12px;
+        border-radius: 6px;
+        margin: 15px 0;
+        border-left: 4px solid #4ca1af;
+      }
+      .progress-bar {
+        height: 10px;
+        background: #e9ecef;
+        border-radius: 5px;
+        margin-top: 10px;
+        overflow: hidden;
+      }
+      .progress {
+        height: 100%;
+        background: linear-gradient(to right, #4ca1af, #1a2a6c);
+        width: 0%;
+        transition: width 0.5s;
+      }
+
+      .file-info {
+        background: #e9f7fe;
+        padding: 12px;
+        border-radius: 6px;
+        margin: 10px 0;
+        display: none;
+      }
+
+      /* 月度统计特有样式 */
+      .date-selector {
+        display: flex;
+        gap: 8px;
+        margin-top: 15px;
+        margin-bottom: 15px;
+        align-items: center;
+      }
+      .date-selector .date-group {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        background: white;
+        border: 2px solid #4ca1af;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .date-selector .date-label {
+        padding: 0 12px;
+        background: #4ca1af;
+        color: white;
+        font-weight: bold;
+        min-width: 60px;
+        text-align: center;
+      }
+      .date-selector select {
+        flex: 1;
+        padding: 10px;
+        border: none;
+        outline: none;
+        background: white;
+        appearance: none;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234ca1af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        background-size: 16px;
+        padding-right: 35px;
+      }
+      /* 月度统计管理系统收窄 */
+      #monthly-system .left-panel {
+        flex: 0.5; /* 收窄1倍 */
+        min-width: 250px;
+        max-width: 350px;
+      }
+      /* 系统切换相关样式 */
+      .system-content {
+        display: none;
+      }
+      .system-content.active {
+        display: block;
+      }
+
+      /* 单独添加人员表单样式 */
+      .add-person-form {
+        margin-top: 15px;
+      }
+      .form-row {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 15px;
+      }
+      .form-row .form-group {
+        flex: 1;
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+        color: #2c3e50;
+        font-size: 14px;
+      }
+      .form-group input,
+      .form-group select {
+        width: 100%;
+        padding: 10px;
+        border: 2px solid #4ca1af;
+        border-radius: 6px;
+        font-size: 14px;
+      }
+      .form-group input:focus,
+      .form-group select:focus {
+        outline: none;
+        border-color: #1a2a6c;
+        box-shadow: 0 0 5px rgba(26, 42, 108, 0.3);
+      }
+
+      /* 月份选择器面板样式 */
+      .month-selector-panel {
+        background: #f9f9f9;
+        border-radius: 10px;
+        padding: 20px;
+        padding-bottom: 0px;
+        margin-bottom: 20px;
+        border: 1px solid #e0e0e0;
+      }
+
+      @media (max-width: 900px) {
+        .main-content {
+          flex-direction: column;
         }
-        /* 系统切换相关样式 */
-        .system-content { display: none; }
-        .system-content.active { display: block; }
-        
-        /* 单独添加人员表单样式 */
-        .add-person-form { margin-top: 15px; }
-        .form-row { display: flex; gap: 15px; margin-bottom: 15px; }
-        .form-row .form-group { flex: 1; }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #2c3e50; font-size: 14px; }
-        .form-group input, .form-group select { width: 100%; padding: 10px; border: 2px solid #4ca1af; border-radius: 6px; font-size: 14px; }
-        .form-group input:focus, .form-group select:focus { outline: none; border-color: #1a2a6c; box-shadow: 0 0 5px rgba(26, 42, 108, 0.3); }
-        
-        /* 月份选择器面板样式 */
-        .month-selector-panel {
-            background: #f9f9f9;
-            border-radius: 10px;
-            padding: 20px;
-            padding-bottom: 0px;
-            margin-bottom: 20px;
-            border: 1px solid #e0e0e0;
+        .system-switcher {
+          position: static;
+          justify-content: center;
+          margin-bottom: 15px;
         }
-        
-        @media (max-width: 900px) {
-            .main-content { flex-direction: column; }
-            .system-switcher { position: static; justify-content: center; margin-bottom: 15px; }
-            .form-row { flex-direction: column; gap: 15px; }
+        .form-row {
+          flex-direction: column;
+          gap: 15px;
         }
-        /* 人员管理系统收窄布局 */
+      }
+      /* 人员管理系统收窄布局 */
+      #person-system .left-panel {
+        flex: 1;
+        min-width: 0;
+      }
+
+      #person-system .left-panel > div {
+        flex: 0.5; /* 收窄1倍 */
+        min-width: 250px;
+        max-width: 350px;
+      }
+
+      /* 响应式调整 */
+      @media (max-width: 1100px) {
         #person-system .left-panel {
-            flex: 1;
-            min-width: 0;
+          flex-direction: column;
         }
 
         #person-system .left-panel > div {
-            flex: 0.5; /* 收窄1倍 */
-            min-width: 250px;
-            max-width: 350px;
+          min-width: 100%;
+          max-width: 100%;
         }
 
-        /* 响应式调整 */
-        @media (max-width: 1100px) {
-            #person-system .left-panel {
-                flex-direction: column;
-            }
-            
-            #person-system .left-panel > div {
-                min-width: 100%;
-                max-width: 100%;
-            }
-            
-            #monthly-system .left-panel {
-                min-width: 100%;
-                max-width: 100%;
-            }
+        #monthly-system .left-panel {
+          min-width: 100%;
+          max-width: 100%;
         }
-        /* 增加选择托育机构模块的间隔 */
-        .kindergarten-selector {
-            margin-bottom: 0px;    /* 底部外边距：5像素 */
-            padding-top: 25px;     /* 上内边距：25像素 */
-            padding-bottom: 0px;   /* 下内边距：5像素 */
-            padding-left: 0;
-            padding-right: 0;
+      }
+      /* 增加选择托育机构模块的间隔 */
+      .kindergarten-selector {
+        margin-bottom: 0px; /* 底部外边距：5像素 */
+        padding-top: 25px; /* 上内边距：25像素 */
+        padding-bottom: 0px; /* 下内边距：5像素 */
+        padding-left: 0;
+        padding-right: 0;
+      }
+
+      .kindergarten-selector select {
+        appearance: none;
+        padding: 12px;
+        border: 2px solid #4ca1af;
+        border-radius: 8px;
+        font-size: 16px;
+        background: white;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234ca1af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        background-size: 16px;
+        padding-right: 35px;
+      }
+
+      .kindergarten-selector input {
+        margin-top: 10px;
+        padding: 12px;
+        border: 2px solid #4ca1af;
+        border-radius: 8px;
+        font-size: 16px;
+        background: white;
+      }
+
+      /* 为选择框添加悬停效果 */
+      .kindergarten-selector select:hover,
+      .kindergarten-selector input:hover {
+        border-color: #2c3e50;
+      }
+
+      .kindergarten-selector select:focus,
+      .kindergarten-selector input:focus {
+        outline: none;
+        border-color: #1a2a6c;
+        box-shadow: 0 0 5px rgba(26, 42, 108, 0.3);
+      }
+      /* 缩小选择托育机构的下边距 */
+      .kindergarten-selector select {
+        margin-bottom: 0px; /* 从15px减小到8px */
+      }
+      #preview-table-person {
+        display: table; /* 必须显示 */
+      }
+      .duplicate-row {
+        background-color: #fdd; /* 红色高亮重复行 */
+      }
+      .warning-row {
+        background-color: #ffeeba;
+      }
+      .success-row {
+        background-color: #d4edda;
+      }
+
+      /* 验证结果颜色 */
+      .status-success {
+        color: #28a745; /* 绿色 */
+        font-weight: bold;
+      }
+      .status-warning {
+        color: #dfa802; /* 黄色 */
+        font-weight: bold;
+      }
+      .status-error {
+        color: #f44336; /* 红色 */
+        font-weight: bold;
+      }
+
+      /* 操作按钮 */
+      .delete-btn {
+        background: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 4px 8px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .delete-btn:hover {
+        opacity: 0.9;
+      }
+      #success-count {
+        color: #28a745; /* 绿色 */
+        font-weight: bold;
+      }
+      #warning-count {
+        color: #ffc107; /* 黄色 */
+        font-weight: bold;
+      }
+      #error-count {
+        color: #f44336; /* 红色 */
+        font-weight: bold;
+      }
+
+      /* 统计页面布局调整 */
+      #stats-system .main-content {
+        display: flex;
+        gap: 20px;
+        height: calc(100vh - 200px); /* 设置适当的高度 */
+      }
+
+      #stats-system .left-panel {
+        flex: 0.4;
+        min-width: 300px;
+        max-width: 400px;
+      }
+
+      #stats-system .right-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        min-width: 0; /* 防止flex项目溢出 */
+      }
+
+      /* 统计摘要横向布局 */
+      .stats-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+      }
+
+      .stat-item {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid #e0e0e0;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .stat-label {
+        display: block;
+        font-size: 12px;
+        color: #666;
+        margin-bottom: 8px;
+        font-weight: bold;
+      }
+
+      .stat-value {
+        display: block;
+        font-size: 20px;
+        font-weight: bold;
+        color: #1a2a6c;
+      }
+
+      /* 查询表单样式 */
+      .query-form {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      .date-range {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .date-range input {
+        flex: 1;
+      }
+
+      /* 数据表格容器 */
+      #stats-system .table-container {
+        max-height: 400px;
+        overflow: auto;
+      }
+
+      /* 响应式调整 */
+      @media (max-width: 1200px) {
+        #stats-system .main-content {
+          flex-direction: column;
+          height: auto;
         }
 
-        .kindergarten-selector select {
-            appearance: none;
-            padding: 12px;
-            border: 2px solid #4ca1af;
-            border-radius: 8px;
-            font-size: 16px;
-            background: white;
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234ca1af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-            background-repeat: no-repeat; 
-            background-position: right 10px center; 
-            background-size: 16px; 
-            padding-right: 35px;
+        #stats-system .left-panel {
+          max-width: 100%;
         }
 
-        .kindergarten-selector input {
-            margin-top: 10px;
-            padding: 12px;
-            border: 2px solid #4ca1af;
-            border-radius: 8px;
-            font-size: 16px;
-            background: white;
+        .stats-summary {
+          grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        }
+      }
+
+      @media (max-width: 768px) {
+        .stats-summary {
+          grid-template-columns: repeat(2, 1fr);
         }
 
-        /* 为选择框添加悬停效果 */
-        .kindergarten-selector select:hover,
-        .kindergarten-selector input:hover {
-            border-color: #2c3e50;
+        .date-range {
+          flex-direction: column;
+          gap: 5px;
         }
 
-        .kindergarten-selector select:focus,
-        .kindergarten-selector input:focus {
-            outline: none;
-            border-color: #1a2a6c;
-            box-shadow: 0 0 5px rgba(26, 42, 108, 0.3);
+        .date-range span {
+          margin: 5px 0;
         }
-        /* 缩小选择托育机构的下边距 */
-        .kindergarten-selector select {
-            margin-bottom: 0px; /* 从15px减小到8px */
-        }
-        #preview-table-person {
-            display: table; /* 必须显示 */
-        }
-        .duplicate-row {
-            background-color: #fdd; /* 红色高亮重复行 */
-        }
-        .warning-row {
-            background-color: #ffeeba;
-        }
-        .success-row {
-            background-color: #d4edda;
-        }
-
-        /* 验证结果颜色 */
-        .status-success {
-            color: #28a745;  /* 绿色 */
-            font-weight: bold;
-        }
-        .status-warning {
-            color: #dfa802;  /* 黄色 */
-            font-weight: bold;
-        }
-        .status-error {
-            color: #f44336;  /* 红色 */
-            font-weight: bold;
-        }
-
-        /* 操作按钮 */
-        .delete-btn {
-            background: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 4px 8px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        .delete-btn:hover {
-            opacity: 0.9;
-        }
-        #success-count {
-            color: #28a745;  /* 绿色 */
-            font-weight: bold;
-        }
-        #warning-count {
-            color: #ffc107;  /* 黄色 */
-            font-weight: bold;
-        }
-        #error-count {
-            color: #f44336;  /* 红色 */
-            font-weight: bold;
-        }
-
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <header>
-            <div class="system-switcher">
-                <button class="switch-btn active" data-system="person">人员信息管理</button>
-                <button class="switch-btn" data-system="monthly">月度统计管理</button>
-            </div>
-            <h1>东昌府区托育补贴综合管理系统</h1>
-            <p id="system-subtitle">支持多个托育机构的数据管理</p>
-        </header>
-
-        <!-- 人员信息管理系统 -->
-        <div class="system-content active" id="person-system">
-            <div class="main-content">
-                <div class="left-panel" style="display: flex; gap: 20px;">
-                    <!-- 左侧：选择托育机构和导入模块 -->
-                    <div style="flex: 0.5; min-width: 250px; max-width: 350px; display: flex; flex-direction: column; gap: 0px;">
-                        <!-- 选择托育机构 -->
-                        <div class="panel" style="flex: 1;">
-                            <h2><i class="fas fa-school"></i> 选择托育机构</h2>
-                            <div class="kindergarten-selector">
-                                <select id="kindergarten-select"  onclick="loadKindergartens()">
-                                    <option value="">-- 请选择托育机构 --</option>
-                                    <option value="风貌街实验幼儿园">风貌街实验幼儿园</option>
-                                    <option value="阳光幼儿园">阳光幼儿园</option>
-                                    <option value="彩虹幼儿园">彩虹幼儿园</option>
-                                    <option value="new">+ 新建托育机构</option>
-                                </select>
-                                <input type="text" id="new-kindergarten" placeholder="输入新机构名称" style="display:none;">
-                            </div>
-                        </div>
-                        
-                        <!-- 上传Excel文件 -->
-                        <div class="panel" style="flex: 2;">
-                            <h2><i class="fas fa-file-upload"></i> 上传Excel文件</h2>
-                            <div class="upload-section">
-                                <div class="upload-area" id="drop-area-person">
-                                    <div class="upload-icon"><i class="fas fa-file-excel"></i></div>
-                                    <p><strong>点击或拖放Excel文件到此处</strong></p>
-                                    <p style="font-size: 12px; color: #666; margin-top: 10px;">支持 .xls 和 .xlsx 格式</p>
-                                    <div class="file-input-wrapper">
-                                        <button class="btn">选择Excel文件</button>
-                                        <input type="file" id="file-input-person" accept=".xls,.xlsx">
-                                    </div>
-                                </div>
-                                
-                                <div class="file-info" id="file-info-person">
-                                    <i class="fas fa-file-excel"></i>
-                                    <span id="file-name-person">文件名.xlsx</span>
-                                    <span id="file-size-person" style="font-size: 12px; color: #666;"></span>
-                                </div>
-                                
-                                <button class="btn btn-success" id="import-btn-person" disabled onclick="importPersonData()">
-                                    <i class="fas fa-database"></i> 导入数据
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- 右侧：单独添加人员模块 -->
-                    <div class="panel" style="flex: 0.5; min-width: 250px; max-width: 350px;">
-                        <h2><i class="fas fa-user-plus"></i> 单独添加人员</h2>
-                        <div class="add-person-form">
-                            <!-- 第一行：孩子姓名 + 胎次（并排） -->
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>孩子姓名</label>
-                                    <input type="text" id="child-name" placeholder="请输入孩子姓名">
-                                </div>
-                                <div class="form-group">
-                                    <label>孩次</label>
-                                    <select id="birth-order">
-                                        <option value="">请选择孩次</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                    </select>
-                                </div>
-                            </div>
-                            
-                            <!-- 第二行：孩子身份证号码（单独一行） -->
-                            <div class="form-group">
-                                <label>孩子身份证号码</label>
-                                <input type="text" id="child-id" placeholder="请输入18位身份证号" maxlength="18">
-                            </div>
-                            
-                            <!-- 第三行：父亲姓名 + 母亲姓名（并排） -->
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>父亲姓名</label>
-                                    <input type="text" id="father-name" placeholder="请输入父亲姓名">
-                                </div>
-                                <div class="form-group">
-                                    <label>母亲姓名</label>
-                                    <input type="text" id="mother-name" placeholder="请输入母亲姓名">
-                                </div>
-                            </div>
-                            
-                            <!-- 第四行：父亲身份证号码（单独一行） -->
-                            <div class="form-group">
-                                <label>父亲身份证号码</label>
-                                <input type="text" id="father-id" placeholder="请输入18位身份证号" maxlength="18">
-                            </div>
-                            
-                            <!-- 第五行：母亲身份证号码（单独一行） -->
-                            <div class="form-group">
-                                <label>母亲身份证号码</label>
-                                <input type="text" id="mother-id" placeholder="请输入18位身份证号" maxlength="18">
-                            </div>
-                            
-                            <button class="btn btn-success" id="add-person-btn" onclick="addSinglePerson()" style="margin-top: 15px; width: 100%;">
-                                <i class="fas fa-plus-circle"></i> 添加人员
-                            </button>
-                            
-                            <div class="message success" id="add-success-message"></div>
-                            <div class="message error" id="add-error-message"></div>
-                        </div>
-                    </div>
-                </div>
-        
-              
-                <div class="right-panel">
-                    <div class="panel preview-section" id="preview-section-person">
-                        <h2><i class="fas fa-table"></i> 数据预览 - <span id="preview-kindergarten-person"></span></h2>
-                        
-                        <div class="table-container">
-                            <table id="preview-table-person" class="table">
-                                <thead>
-                                    <tr>
-                                        <th>序号</th>
-                                        <th>孩子姓名</th>
-                                        <th>孩次</th>
-                                        <th>孩子身份证</th>
-                                        <th>父亲姓名</th>
-                                        <th>母亲姓名</th>
-                                        <th>状态</th>
-                                        <th>操作</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="preview-body-person">
-                                    <tr>
-                                        <td colspan="8" style="text-align:center; color:#999;">暂无数据</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        
-                        <div class="status-bar" id="status-bar-person" style="display: none;">
-                            <div id="status-text-person">正在处理数据...</div>
-                            <div class="progress-bar">
-                                <div class="progress" id="progress-bar-person"></div>
-                            </div>
-                        </div>
-                        
-                        <div class="message success" id="success-message-person"></div>
-                        <div class="message error" id="error-message-person"></div>
-                        <div class="message warning" id="warning-message-person"></div>
-                    </div>
-                </div>
-            </div>
+      <header>
+        <div class="system-switcher">
+          <button class="switch-btn active" data-system="person">
+            人员信息管理
+          </button>
+          <button class="switch-btn" data-system="monthly">月度统计管理</button>
+          <button class="switch-btn" data-system="stats">数据统计分析</button>
         </div>
+        <h1>东昌府区托育补贴综合管理系统</h1>
+        <p id="system-subtitle">支持多个托育机构的数据管理</p>
+      </header>
 
-        <!-- 月度统计管理系统 -->
-        <div class="system-content" id="monthly-system">
-            <div class="main-content">
-                <div class="left-panel">
-                    <!-- 选择托育机构 -->
-                    <div class="panel">
-                        <h2><i class="fas fa-school"></i> 选择托育机构</h2>
-                        <div class="kindergarten-selector">
-                            <select id="kindergarten-select-monthly" onclick="loadKindergartens()">
-                                <option value="">-- 请选择托育机构 --</option>
-                                <option value="风貌街实验幼儿园">风貌街实验幼儿园</option>
-                                <option value="阳光幼儿园">阳光幼儿园</option>
-                                <option value="彩虹幼儿园">彩虹幼儿园</option>
-                            </select>
-                        </div>
-                    </div>
+      <!-- 人员信息管理系统 -->
+      <div class="system-content active" id="person-system">
+        <div class="main-content">
+          <div class="left-panel" style="display: flex; gap: 20px">
+            <!-- 左侧：选择托育机构和导入模块 -->
+            <div
+              style="
+                flex: 0.5;
+                min-width: 250px;
+                max-width: 350px;
+                display: flex;
+                flex-direction: column;
+                gap: 0px;
+              "
+            >
+              <!-- 选择托育机构 -->
+              <div class="panel" style="flex: 1">
+                <h2><i class="fas fa-school"></i> 选择托育机构</h2>
+                <div class="kindergarten-selector">
+                  <select
+                    id="kindergarten-select"
+                    onclick="loadKindergartens()"
+                  >
+                    <option value="">-- 请选择托育机构 --</option>
+                    <option value="风貌街实验幼儿园">风貌街实验幼儿园</option>
+                    <option value="阳光幼儿园">阳光幼儿园</option>
+                    <option value="彩虹幼儿园">彩虹幼儿园</option>
+                    <option value="new">+ 新建托育机构</option>
+                  </select>
+                  <input
+                    type="text"
+                    id="new-kindergarten"
+                    placeholder="输入新机构名称"
+                    style="display: none"
+                  />
+                </div>
+              </div>
 
-                    <!-- 选择统计月份 -->
-                    <div class="month-selector-panel">
-                        <h2><i class="fas fa-calendar-alt"></i> 选择统计月份</h2>
-                        <div class="date-selector">
-                            <div class="date-group">
-                                <div class="date-label">年份</div>
-                                <select id="year-select">
-                                    <option value="2023">2023</option>
-                                    <option value="2024">2024</option>
-                                    <option value="2025" selected>2025</option>
-                                    <option value="2026">2026</option>
-                                </select>
-                            </div>
-                            <div class="date-group">
-                                <div class="date-label">月份</div>
-                                <select id="month-select">
-                                    <option value="1">1</option><option value="2">2</option><option value="3">3</option>
-                                    <option value="4" selected>4</option><option value="5">5</option><option value="6">6</option>
-                                    <option value="7">7</option><option value="8">8</option><option value="9">9</option>
-                                    <option value="10">10</option><option value="11">11</option><option value="12">12</option>
-                                </select>
-                            </div>
-                        </div>
+              <!-- 上传Excel文件 -->
+              <div class="panel" style="flex: 2">
+                <h2><i class="fas fa-file-upload"></i> 上传Excel文件</h2>
+                <div class="upload-section">
+                  <div class="upload-area" id="drop-area-person">
+                    <div class="upload-icon">
+                      <i class="fas fa-file-excel"></i>
                     </div>
-                    
-                    <!-- 上传Excel文件 -->
-                    <div class="panel">
-                        <h2><i class="fas fa-file-upload"></i> 上传Excel文件</h2>
-                        <div class="upload-section">
-                            <div class="upload-area" id="drop-area-monthly">
-                                <div class="upload-icon"><i class="fas fa-file-excel"></i></div>
-                                <p><strong>点击或拖放Excel文件到此处</strong></p>
-                                <p style="font-size: 12px; color: #666;">支持 .xls 和 .xlsx 格式</p>
-                                <div class="file-input-wrapper">
-                                    <button class="btn">选择Excel文件</button>
-                                    <input type="file" id="file-input-monthly" accept=".xls,.xlsx">
-                                </div>
-                            </div>
-                            
-                            <div class="file-info" id="file-info-monthly">
-                                <i class="fas fa-file-excel"></i>
-                                <span id="file-name-monthly">文件名.xlsx</span>
-                            </div>
-                            
-                            <button class="btn btn-success" id="validate-btn-monthly" disabled onclick="validateData()">
-                                <i class="fas fa-check-circle"></i> 验证数据
-                            </button>
-                            <button class="btn" id="import-btn-monthly" disabled onclick="importMonthlyData()">
-                                <i class="fas fa-database"></i> 导入数据
-                            </button>
-                        </div>
+                    <p><strong>点击或拖放Excel文件到此处</strong></p>
+                    <p style="font-size: 12px; color: #666; margin-top: 10px">
+                      支持 .xls 和 .xlsx 格式
+                    </p>
+                    <div class="file-input-wrapper">
+                      <button class="btn">选择Excel文件</button>
+                      <input
+                        type="file"
+                        id="file-input-person"
+                        accept=".xls,.xlsx"
+                      />
                     </div>
+                  </div>
+
+                  <div class="file-info" id="file-info-person">
+                    <i class="fas fa-file-excel"></i>
+                    <span id="file-name-person">文件名.xlsx</span>
+                    <span
+                      id="file-size-person"
+                      style="font-size: 12px; color: #666"
+                    ></span>
+                  </div>
+
+                  <button
+                    class="btn btn-success"
+                    id="import-btn-person"
+                    disabled
+                    onclick="importPersonData()"
+                  >
+                    <i class="fas fa-database"></i> 导入数据
+                  </button>
                 </div>
-                
-                <div class="right-panel">
-                    <div class="panel preview-section" id="preview-section-monthly">
-                        <h2><i class="fas fa-table"></i> 数据预览与验证结果 - <span id="selected-date">2025年4月</span></h2>
-                        
-                        <div class="table-container">
-                            <table id="preview-table-monthly">
-                                <thead>
-                                    <tr>
-                                        <th>姓名</th>
-                                        <th>孩次</th>
-                                        <th>身份证号码</th>
-                                        <th>家长姓名</th>
-                                        <th>托育产品</th>
-                                        <th>班级</th>
-                                        <th>入托时间</th>
-                                        <th>本次缴费时间</th>
-                                        <th>本次缴费</th>
-                                        <th>费用时长(月)</th>
-                                        <th>单月费用</th>
-                                        <th>出勤天数</th>
-                                        <th>验证结果</th>
-                                        <th>操作</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="preview-body-monthly"></tbody>
-                            </table>
-                        </div>
-                        
-                        <div class="status-bar" id="status-bar-monthly" style="display: none;">
-                            <div id="status-text-monthly">正在处理数据...</div>
-                            <div class="progress-bar">
-                                <div class="progress" id="progress-bar-monthly"></div>
-                            </div>
-                        </div>
-                        
-                        <div class="message success" id="success-message-monthly"></div>
-                        <div class="message error" id="error-message-monthly"></div>
-                        <div class="message warning" id="warning-message-monthly"></div>
-                        <!-- 新增：验证摘要显示 -->
-                        <div id="validation-summary-monthly" style="display:none; padding:10px; margin-top:10px; border:1px solid #4ca1af; border-radius:6px; background:#e9f7fe;">
-                            <strong>总条数:</strong> <span id="total-count-monthly">0</span> &nbsp;
-                            <strong>成功:</strong> <span id="success-count-monthly">0</span> &nbsp;
-                            <strong>警告:</strong> <span id="warning-count-monthly">0</span> &nbsp;
-                            <strong>错误:</strong> <span id="error-count-monthly">0</span>
-                        </div>
-                    </div>
-                </div>
+              </div>
             </div>
+
+            <!-- 右侧：单独添加人员模块 -->
+            <div
+              class="panel"
+              style="flex: 0.5; min-width: 250px; max-width: 350px"
+            >
+              <h2><i class="fas fa-user-plus"></i> 单独添加人员</h2>
+              <div class="add-person-form">
+                <!-- 第一行：孩子姓名 + 胎次（并排） -->
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>孩子姓名</label>
+                    <input
+                      type="text"
+                      id="child-name"
+                      placeholder="请输入孩子姓名"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label>孩次</label>
+                    <select id="birth-order">
+                      <option value="">请选择孩次</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- 第二行：孩子身份证号码（单独一行） -->
+                <div class="form-group">
+                  <label>孩子身份证号码</label>
+                  <input
+                    type="text"
+                    id="child-id"
+                    placeholder="请输入18位身份证号"
+                    maxlength="18"
+                  />
+                </div>
+
+                <!-- 第三行：父亲姓名 + 母亲姓名（并排） -->
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>父亲姓名</label>
+                    <input
+                      type="text"
+                      id="father-name"
+                      placeholder="请输入父亲姓名"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label>母亲姓名</label>
+                    <input
+                      type="text"
+                      id="mother-name"
+                      placeholder="请输入母亲姓名"
+                    />
+                  </div>
+                </div>
+
+                <!-- 第四行：父亲身份证号码（单独一行） -->
+                <div class="form-group">
+                  <label>父亲身份证号码</label>
+                  <input
+                    type="text"
+                    id="father-id"
+                    placeholder="请输入18位身份证号"
+                    maxlength="18"
+                  />
+                </div>
+
+                <!-- 第五行：母亲身份证号码（单独一行） -->
+                <div class="form-group">
+                  <label>母亲身份证号码</label>
+                  <input
+                    type="text"
+                    id="mother-id"
+                    placeholder="请输入18位身份证号"
+                    maxlength="18"
+                  />
+                </div>
+
+                <button
+                  class="btn btn-success"
+                  id="add-person-btn"
+                  onclick="addSinglePerson()"
+                  style="margin-top: 15px; width: 100%"
+                >
+                  <i class="fas fa-plus-circle"></i> 添加人员
+                </button>
+
+                <div class="message success" id="add-success-message"></div>
+                <div class="message error" id="add-error-message"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="right-panel">
+            <div class="panel preview-section" id="preview-section-person">
+              <h2>
+                <i class="fas fa-table"></i> 数据预览 -
+                <span id="preview-kindergarten-person"></span>
+              </h2>
+
+              <div class="table-container">
+                <table id="preview-table-person" class="table">
+                  <thead>
+                    <tr>
+                      <th>序号</th>
+                      <th>孩子姓名</th>
+                      <th>孩次</th>
+                      <th>孩子身份证</th>
+                      <th>父亲姓名</th>
+                      <th>母亲姓名</th>
+                      <th>状态</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="preview-body-person">
+                    <tr>
+                      <td colspan="8" style="text-align: center; color: #999">
+                        暂无数据
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div
+                class="status-bar"
+                id="status-bar-person"
+                style="display: none"
+              >
+                <div id="status-text-person">正在处理数据...</div>
+                <div class="progress-bar">
+                  <div class="progress" id="progress-bar-person"></div>
+                </div>
+              </div>
+
+              <div class="message success" id="success-message-person"></div>
+              <div class="message error" id="error-message-person"></div>
+              <div class="message warning" id="warning-message-person"></div>
+            </div>
+          </div>
         </div>
+      </div>
+
+      <!-- 月度统计管理系统 -->
+      <div class="system-content" id="monthly-system">
+        <div class="main-content">
+          <div class="left-panel">
+            <!-- 选择托育机构 -->
+            <div class="panel">
+              <h2><i class="fas fa-school"></i> 选择托育机构</h2>
+              <div class="kindergarten-selector">
+                <select id="kindergarten-select-monthly">
+                  <option value="">-- 请选择托育机构 --</option>
+                  <option value="风貌街实验幼儿园">风貌街实验幼儿园</option>
+                  <option value="阳光幼儿园">阳光幼儿园</option>
+                  <option value="彩虹幼儿园">彩虹幼儿园</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 选择统计月份 -->
+            <div class="month-selector-panel">
+              <h2><i class="fas fa-calendar-alt"></i> 选择统计月份</h2>
+              <div class="date-selector">
+                <div class="date-group">
+                  <div class="date-label">年份</div>
+                  <select id="year-select">
+                    <option value="2023">2023</option>
+                    <option value="2024">2024</option>
+                    <option value="2025" selected>2025</option>
+                    <option value="2026">2026</option>
+                  </select>
+                </div>
+                <div class="date-group">
+                  <div class="date-label">月份</div>
+                  <select id="month-select">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4" selected>4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                    <option value="10">10</option>
+                    <option value="11">11</option>
+                    <option value="12">12</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- 上传Excel文件 -->
+            <div class="panel">
+              <h2><i class="fas fa-file-upload"></i> 上传Excel文件</h2>
+              <div class="upload-section">
+                <div class="upload-area" id="drop-area-monthly">
+                  <div class="upload-icon">
+                    <i class="fas fa-file-excel"></i>
+                  </div>
+                  <p><strong>点击或拖放Excel文件到此处</strong></p>
+                  <p style="font-size: 12px; color: #666">
+                    支持 .xls 和 .xlsx 格式
+                  </p>
+                  <div class="file-input-wrapper">
+                    <button class="btn">选择Excel文件</button>
+                    <input
+                      type="file"
+                      id="file-input-monthly"
+                      accept=".xls,.xlsx"
+                    />
+                  </div>
+                </div>
+
+                <div class="file-info" id="file-info-monthly">
+                  <i class="fas fa-file-excel"></i>
+                  <span id="file-name-monthly">文件名.xlsx</span>
+                </div>
+
+                <button
+                  class="btn btn-success"
+                  id="validate-btn-monthly"
+                  disabled
+                  onclick="validateData()"
+                >
+                  <i class="fas fa-check-circle"></i> 验证数据
+                </button>
+                <button
+                  class="btn"
+                  id="import-btn-monthly"
+                  disabled
+                  onclick="importMonthlyData()"
+                >
+                  <i class="fas fa-database"></i> 导入数据
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="right-panel">
+            <div class="panel preview-section" id="preview-section-monthly">
+              <h2>
+                <i class="fas fa-table"></i> 数据预览与验证结果 -
+                <span id="selected-date">2025年4月</span>
+              </h2>
+
+              <div class="table-container">
+                <table id="preview-table-monthly">
+                  <thead>
+                    <tr>
+                      <th>姓名</th>
+                      <th>孩次</th>
+                      <th>身份证号码</th>
+                      <th>家长姓名</th>
+                      <th>托育产品</th>
+                      <th>班级</th>
+                      <th>入托时间</th>
+                      <th>本次缴费时间</th>
+                      <th>本次缴费</th>
+                      <th>费用时长(月)</th>
+                      <th>单月费用</th>
+                      <th>出勤天数</th>
+                      <th>验证结果</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="preview-body-monthly"></tbody>
+                </table>
+              </div>
+
+              <div
+                class="status-bar"
+                id="status-bar-monthly"
+                style="display: none"
+              >
+                <div id="status-text-monthly">正在处理数据...</div>
+                <div class="progress-bar">
+                  <div class="progress" id="progress-bar-monthly"></div>
+                </div>
+              </div>
+
+              <div class="message success" id="success-message-monthly"></div>
+              <div class="message error" id="error-message-monthly"></div>
+              <div class="message warning" id="warning-message-monthly"></div>
+              <!-- 新增：验证摘要显示 -->
+              <div
+                id="validation-summary-monthly"
+                style="
+                  display: none;
+                  padding: 10px;
+                  margin-top: 10px;
+                  border: 1px solid #4ca1af;
+                  border-radius: 6px;
+                  background: #e9f7fe;
+                "
+              >
+                <strong>总条数:</strong>
+                <span id="total-count-monthly">0</span> &nbsp;
+                <strong>成功:</strong>
+                <span id="success-count-monthly">0</span> &nbsp;
+                <strong>警告:</strong>
+                <span id="warning-count-monthly">0</span> &nbsp;
+                <strong>错误:</strong> <span id="error-count-monthly">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- 数据统计分析系统 -->
+      <div class="system-content" id="stats-system">
+        <div class="main-content">
+          <!-- 左侧：查询条件面板 -->
+          <div class="left-panel">
+            <div class="panel">
+              <h2><i class="fas fa-search"></i> 查询条件</h2>
+              <div class="query-form">
+                <div class="form-group">
+                  <label>托育机构</label>
+                  <select id="stats-kindergarten-select">
+                    <option value="">全部机构</option>
+                    <option value="风貌街实验幼儿园">风貌街实验幼儿园</option>
+                    <option value="阳光幼儿园">阳光幼儿园</option>
+                    <option value="彩虹幼儿园">彩虹幼儿园</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label>孩次</label>
+                  <select id="stats-birth-order">
+                    <option value="">全部孩次</option>
+                    <option value="2">二孩</option>
+                    <option value="3">三孩</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label>时间范围</label>
+                  <div class="date-range">
+                    <input type="date" id="start-date" placeholder="开始日期" />
+                    <span style="margin: 0 10px; color: #666">至</span>
+                    <input type="date" id="end-date" placeholder="结束日期" />
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label>关键字搜索</label>
+                  <input
+                    type="text"
+                    id="keyword-search"
+                    placeholder="姓名/身份证号"
+                  />
+                </div>
+
+                <button
+                  class="btn btn-success"
+                  onclick="searchData()"
+                  style="width: 100%"
+                >
+                  <i class="fas fa-search"></i> 查询数据
+                </button>
+
+                <button
+                  class="btn"
+                  onclick="exportStatsData()"
+                  style="width: 100%; margin-top: 10px"
+                >
+                  <i class="fas fa-download"></i> 导出数据
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右侧：统计摘要面板 + 数据展示面板 -->
+          <div
+            class="right-panel"
+            style="display: flex; flex-direction: column; gap: 20px"
+          >
+            <!-- 统计摘要面板 -->
+            <div class="panel">
+              <h2><i class="fas fa-chart-pie"></i> 统计摘要</h2>
+              <div class="stats-summary">
+                <div class="stat-item">
+                  <span class="stat-label">总人数</span>
+                  <span class="stat-value" id="total-people-count">0</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">总补贴金额</span>
+                  <span class="stat-value" id="total-subsidy-amount">0</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">二孩人数</span>
+                  <span class="stat-value" id="second-child-count">0</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">二孩补贴金额</span>
+                  <span class="stat-value" id="second-child-subsidy">0</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">三孩人数</span>
+                  <span class="stat-value" id="third-child-count">0</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">三孩补贴金额</span>
+                  <span class="stat-value" id="third-child-subsidy">0</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">机构数量</span>
+                  <span class="stat-value" id="kindergarten-count">0</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 数据展示面板 -->
+            <div class="panel" style="flex: 1">
+              <h2><i class="fas fa-table"></i> 数据列表</h2>
+
+              <div class="table-controls" style="margin-bottom: 15px">
+                <div style="display: flex; gap: 10px; align-items: center">
+                  <span>每页显示：</span>
+                  <select id="page-size" style="padding: 5px">
+                    <option value="10">10条</option>
+                    <option value="20">20条</option>
+                    <option value="50">50条</option>
+                    <option value="100">100条</option>
+                  </select>
+                  <span id="pagination-info" style="margin-left: auto">
+                    第 1 页，共 1 页
+                  </span>
+                </div>
+              </div>
+
+              <div class="table-container">
+                <table id="stats-table">
+                  <thead>
+                    <tr>
+                      <th>序号</th>
+                      <th>孩子姓名</th>
+                      <th>孩次</th>
+                      <th>身份证号</th>
+                      <th>托育机构</th>
+                      <th>父亲姓名</th>
+                      <th>母亲姓名</th>
+                      <th>录入时间</th>
+                      <th>补贴金额</th>
+                      <th>状态</th>
+                    </tr>
+                  </thead>
+                  <tbody id="stats-body">
+                    <tr>
+                      <td colspan="10" style="text-align: center; color: #999">
+                        暂无数据，请点击查询
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div
+                class="pagination"
+                style="margin-top: 15px; text-align: center"
+              >
+                <button class="btn" id="prev-page" disabled>上一页</button>
+                <span style="margin: 0 15px" id="page-info">第 1 页</span>
+                <button class="btn" id="next-page" disabled>下一页</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="libs/xlsx.full.min.js"></script>
     <script src="person-system.js"></script>
     <script src="monthly.js"></script>
+    <script src="stats.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chinese-holidays@1.0.4/dist/chinese-holidays.min.js"></script>
     <script>
-        // 页面加载时恢复上一次的系统
-        window.addEventListener("load", () => {
-            const lastSystem = localStorage.getItem("currentSystem") || "person"; // 默认是人员管理
-            switchSystem(lastSystem);
+      // 页面加载时恢复上一次的系统
+      window.addEventListener("load", () => {
+        const lastSystem = localStorage.getItem("currentSystem") || "person"; // 默认是人员管理
+        switchSystem(lastSystem);
+      });
+
+      // 封装切换逻辑
+      function switchSystem(system) {
+        // 按钮高亮
+        document
+          .querySelectorAll(".switch-btn")
+          .forEach((b) => b.classList.remove("active"));
+        document
+          .querySelector(`.switch-btn[data-system="${system}"]`)
+          .classList.add("active");
+
+        // 内容区切换
+        document.querySelectorAll(".system-content").forEach((content) => {
+          content.classList.remove("active");
         });
+        document.getElementById(system + "-system").classList.add("active");
 
-        // 封装切换逻辑
-        function switchSystem(system) {
-            // 按钮高亮
-            document.querySelectorAll('.switch-btn').forEach(b => b.classList.remove('active'));
-            document.querySelector(`.switch-btn[data-system="${system}"]`).classList.add('active');
-
-            // 内容区切换
-            document.querySelectorAll('.system-content').forEach(content => {
-                content.classList.remove('active');
-            });
-            document.getElementById(system + '-system').classList.add('active');
-
-            // 修改副标题
-            const subtitle = document.getElementById('system-subtitle');
-            if (system === 'person') {
-                subtitle.textContent = '支持多个托育机构的数据管理';
-            } else {
-                subtitle.textContent = '二孩、三孩入托月度统计表验证与导入';
-            }
-
-            // 保存当前选中的 system
-            localStorage.setItem("currentSystem", system);
+        // 修改副标题
+        const subtitle = document.getElementById("system-subtitle");
+        if (system === "person") {
+          subtitle.textContent = "支持多个托育机构的数据管理";
+        } else if (system === "monthly") {
+          subtitle.textContent = "二孩、三孩入托月度统计表验证与导入";
+        } else if (system === "stats") {
+          subtitle.textContent = "数据统计分析与查询";
         }
 
-        // 点击事件
-        document.querySelectorAll('.switch-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                switchSystem(this.dataset.system);
-            });
-        });
-    </script>
+        // 保存当前选中的 system
+        localStorage.setItem("currentSystem", system);
+      }
 
-</body>
+      // 点击事件
+      document.querySelectorAll(".switch-btn").forEach((btn) => {
+        btn.addEventListener("click", function () {
+          switchSystem(this.dataset.system);
+        });
+      });
+    </script>
+  </body>
 </html>
