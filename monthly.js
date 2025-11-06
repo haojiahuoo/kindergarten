@@ -398,17 +398,33 @@ function checkFeeStandard(className, monthlyFee) {
     return standard === 0 || monthlyFee <= standard;
 }
 
+let holidayData = [];
 
-// 计算指定年月的工作日数量（自动除去节假日和周末）
+// 1️⃣ 加载 JSON 文件（假设文件名是 holidays2025.json）
+async function loadHolidayData() {
+    const res = await fetch('holidays2025.json');
+    holidayData = await res.json();
+}
+
+// 2️⃣ 判断某一天是否是工作日
+function isWorkday(date) {
+    const dStr = date.toISOString().slice(0, 10); // "YYYY-MM-DD"
+    const dayInfo = holidayData.find(h => h.day === dStr);
+    if (!dayInfo) {
+        // JSON 中没有记录的，默认周一到周五为工作日
+        const wd = date.getDay();
+        return wd !== 0 && wd !== 6; // 0=周日, 6=周六
+    }
+    return dayInfo.type === 0; // 0=工作日
+}
+
+// 3️⃣ 计算指定年月工作日数量
 function calculateWorkdays(year, month) {
     let count = 0;
-    const daysInMonth = new Date(year, month, 0).getDate(); // month 是 1–12
-
+    const daysInMonth = new Date(year, month, 0).getDate();
     for (let d = 1; d <= daysInMonth; d++) {
         const dt = new Date(year, month - 1, d);
-        if (ChineseHolidays.isWorkday(dt)) {
-            count++;
-        }
+        if (isWorkday(dt)) count++;
     }
     return count;
 }

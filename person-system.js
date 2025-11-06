@@ -1,15 +1,19 @@
 // 人员信息管理系统的变量和函数
-let personExcelData = [];
-let selectedKindergarten = '';
-let duplicateIds = new Set();
+let personExcelData = [];        //作用：创建一个空数组，用于存储从Excel导入的人员数据,  数据类型：数组(Array)
+let selectedKindergarten = '';   // 存储当前选中的幼儿园名称， 字符串(String)
+let duplicateIds = new Set();    //作用：创建一个Set集合，用于存储重复的ID，duplicate(复制，重复的意思) 数据类型：Set对象,   特点：Set会自动去重，相同的值只会存储一次，可以快速检查某个ID是否已存在
 
 // 初始化页面
 document.addEventListener('DOMContentLoaded', function() {
+    // 加载幼儿园数据
     loadKindergarten();
+    // 初始化人员拖放功能
     initPersonDragAndDrop();
+    // 设置人员事件监听器
     setupPersonEventListeners();
     document.getElementById('preview-section-person').style.display = 'block';
 });
+
 
 async function loadKindergarten() {
     try {
@@ -135,7 +139,36 @@ function handlePersonFileSelect(files) {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { 
+                header: 1,
+                defval: null,
+                raw: false
+            });
+            
+            // 检查整个数据是否为空
+            if (!jsonData || jsonData.length === 0) {
+                showPersonMessage('error-message-person', 'Excel文件为空，请检查文件内容');
+                hidePersonStatus();
+                return;
+            }
+            
+            // 检查是否有有效数据行（只要孩子ID或孩子姓名有一个不为空就算有效）
+            let hasValidData = false;
+            for (let i = 2; i < jsonData.length; i++) {
+                const row = jsonData[i];
+                const childIdValue = row && row[3] !== undefined && row[3] !== null ? String(row[3]).trim() : '';
+                const childNameValue = row && row[1] !== undefined && row[1] !== null ? String(row[1]).trim() : '';
+                if (childIdValue !== '' || childNameValue !== '') {
+                    hasValidData = true;
+                    break;
+                }
+            }
+            
+            if (!hasValidData) {
+                showPersonMessage('error-message-person', 'Excel文件中没有有效数据（孩子ID和孩子姓名都为空）');
+                hidePersonStatus();
+                return;
+            }
             
             processPersonExcelData(jsonData);
             showPersonStatus('文件读取完成', 100);
@@ -155,54 +188,245 @@ function handlePersonFileSelect(files) {
     reader.readAsArrayBuffer(file);
 }
 
+// process(处理)person(人员)excel(excel表)data(数据)
 function processPersonExcelData(data) {
     personExcelData = [];
     duplicateIds.clear();
+    let hasChildIdError = false;
+    let hasFatherIdError = false;
+    let hasMotherIdError = false;
+    let hasChildNameError = false;
+    let hasFatherNameError = false;
+    let hasMotherNameError = false;
+    let hasBirthOrderError = false;
     
+    let childIdErrorMessage = '';
+    let fatherIdErrorMessage = '';
+    let motherIdErrorMessage = '';
+    let childNameErrorMessage = '';
+    let fatherNameErrorMessage = '';
+    let motherNameErrorMessage = '';
+    let birthOrderErrorMessage = '';
+
     for (let i = 2; i < data.length; i++) {
         const row = data[i];
-        if (row && row.length >= 8 && row[1]) {
-            const person = {
-                serialNumber: row[0] || '',
-                childName: row[1] || '',
-                birthOrder: row[2] || '',
-                childId: String(row[3] || '').trim(),
-                fatherName: row[4] || '',
-                fatherId: String(row[5] || '').trim(),
-                motherName: row[6] || '',
-                motherId: String(row[7] || '').trim(),
-                isDuplicate: false,
-                isDbDuplicate: false
-            };
-            
-            personExcelData.push(person);
+        // 检查孩子ID和姓名是否同时为空
+        const initialChildIdValue = row && row[3] !== undefined && row[3] !== null ? String(row[3]).trim() : '';
+        const initialChildNameValue = row && row[1] !== undefined && row[1] !== null ? String(row[1]).trim() : '';
+        
+        console.log(`第${i}行: childId="${initialChildIdValue}", childName="${initialChildNameValue}"`);
+        
+        // 只有当孩子ID和孩子姓名同时为空时才跳过该行
+        if (initialChildIdValue === '' && initialChildNameValue === '') {
+            console.log(`第${i}行被跳过（孩子ID和姓名都为空）`);
+            continue; // 跳过这一行
         }
+        
+        console.log(`第${i}行进入处理逻辑`);
+        
+        // 确保行有足够的列，如果没有就填充null
+        const filledRow = [];
+        for (let j = 0; j < 8; j++) {
+            filledRow[j] = row[j] !== undefined ? row[j] : null;
+        }
+        
+        // 处理null值，确保trim()不会报错
+        const processedChildNameValue = filledRow[1] !== null ? String(filledRow[1]).trim() : '';
+        const birthOrderValue = filledRow[2] !== null ? String(filledRow[2]).trim() : '';
+        const processedChildIdValue = filledRow[3] !== null ? String(filledRow[3]).trim() : '';
+        const fatherNameValue = filledRow[4] !== null ? String(filledRow[4]).trim() : '';
+        const fatherIdValue = filledRow[5] !== null ? String(filledRow[5]).trim() : '';
+        const motherNameValue = filledRow[6] !== null ? String(filledRow[6]).trim() : '';
+        const motherIdValue = filledRow[7] !== null ? String(filledRow[7]).trim() : '';
+        
+        // 检查孩子姓名验证错误（不能为空）
+        if (!hasChildNameError) {
+            if (!processedChildNameValue) {
+                hasChildNameError = true;
+                childNameErrorMessage = '孩子姓名不能为空';
+            } else if (processedChildNameValue.length > 50) {
+                hasChildNameError = true;
+                childNameErrorMessage = '孩子姓名长度不能超过50个字符';
+            } else if (!/^[\u4e00-\u9fa5a-zA-Z·]+$/.test(processedChildNameValue)) {
+                hasChildNameError = true;
+                childNameErrorMessage = '孩子姓名只能包含中文、英文字母和间隔号(·)';
+            }
+        }
+        
+        // 检查孩次验证错误（不能为空）
+        if (!hasBirthOrderError) {
+            if (!birthOrderValue) {
+                hasBirthOrderError = true;
+                birthOrderErrorMessage = '孩次不能为空';
+            } else {
+                const num = Number(birthOrderValue);
+                const isValidBirthOrder = (num === 2 || num === 3);
+                if (!isValidBirthOrder) {
+                    hasBirthOrderError = true;
+                    birthOrderErrorMessage = '孩次只能填写2或3';
+                }
+            }
+        }
+        
+        // 检查childId验证错误（必填）
+        if (!hasChildIdError) {
+            if (!processedChildIdValue) {
+                hasChildIdError = true;
+                childIdErrorMessage = '婴幼儿身份证号码不能为空';
+            } else if (processedChildIdValue.length !== 18) {
+                hasChildIdError = true;
+                childIdErrorMessage = `婴幼儿身份证号码长度必须为18位，当前长度为${processedChildIdValue.length}`;
+            } else if (!/^\d+$/.test(processedChildIdValue)) {
+                hasChildIdError = true;
+                childIdErrorMessage = '婴幼儿身份证号码必须全部为数字，不能包含字母或特殊字符';
+            }
+        }
+        
+        // 检查父亲姓名验证错误（不能为空）
+        if (!hasFatherNameError) {
+            if (!fatherNameValue) {
+                hasFatherNameError = true;
+                fatherNameErrorMessage = '父亲姓名不能为空';
+            } else if (fatherNameValue.length > 50) {
+                hasFatherNameError = true;
+                fatherNameErrorMessage = '父亲姓名长度不能超过50个字符';
+            } else if (!/^[\u4e00-\u9fa5a-zA-Z·]+$/.test(fatherNameValue)) {
+                hasFatherNameError = true;
+                fatherNameErrorMessage = '父亲姓名只能包含中文、英文字母和间隔号(·)';
+            }
+        }
+        
+        // 检查fatherId验证错误（必填）
+        if (!hasFatherIdError) {
+            if (!fatherIdValue) {
+                hasFatherIdError = true;
+                fatherIdErrorMessage = '父亲身份证号码不能为空';
+            } else if (fatherIdValue.length !== 18) {
+                hasFatherIdError = true;
+                fatherIdErrorMessage = `父亲身份证号码长度必须为18位，当前长度为${fatherIdValue.length}`;
+            } else if (!/^\d+$/.test(fatherIdValue)) {
+                hasFatherIdError = true;
+                fatherIdErrorMessage = '父亲身份证号码必须全部为数字，不能包含字母或特殊字符';
+            }
+        }
+        
+        // 检查母亲姓名验证错误（不能为空）
+        if (!hasMotherNameError) {
+            if (!motherNameValue) {
+                hasMotherNameError = true;
+                motherNameErrorMessage = '母亲姓名不能为空';
+            } else if (motherNameValue.length > 50) {
+                hasMotherNameError = true;
+                motherNameErrorMessage = '母亲姓名长度不能超过50个字符';
+            } else if (!/^[\u4e00-\u9fa5a-zA-Z·]+$/.test(motherNameValue)) {
+                hasMotherNameError = true;
+                motherNameErrorMessage = '母亲姓名只能包含中文、英文字母和间隔号(·)';
+            }
+        }
+        
+        // 检查motherId验证错误（必填）
+        if (!hasMotherIdError) {
+            if (!motherIdValue) {
+                hasMotherIdError = true;
+                motherIdErrorMessage = '母亲身份证号码不能为空';
+            } else if (motherIdValue.length !== 18) {
+                hasMotherIdError = true;
+                motherIdErrorMessage = `母亲身份证号码长度必须为18位，当前长度为${motherIdValue.length}`;
+            } else if (!/^\d+$/.test(motherIdValue)) {
+                hasMotherIdError = true;
+                motherIdErrorMessage = '母亲身份证号码必须全部为数字，不能包含字母或特殊字符';
+            }
+        }
+        
+        const person = {
+            serialNumber: filledRow[0] !== null ? String(filledRow[0]) : '',
+            childName: processedChildNameValue,
+            birthOrder: (() => {
+                if (!birthOrderValue) return '';
+                const num = Number(birthOrderValue);
+                return num === 2 || num === 3 ? num : birthOrderValue;
+            })(),
+            childId: processedChildIdValue,
+            fatherName: fatherNameValue,
+            fatherId: fatherIdValue,
+            motherName: motherNameValue,
+            motherId: motherIdValue,
+            isDuplicate: false,
+            isDbDuplicate: false,
+            hasError: hasBirthOrderError || hasChildIdError || hasFatherIdError || hasMotherIdError || 
+                    hasChildNameError || hasFatherNameError || hasMotherNameError
+        };
+        
+        personExcelData.push(person);
     }
     
-    checkPersonDuplicates();
-    renderPersonPreview();
+    checkPersonDuplicates();  // check(检查)person(人)duplicates(副本)，在这个是检查的是之前创建储存人员数据的数组personExcelData
+    renderPersonPreview();    // render(渲染)person(人)preview(预览)
     document.getElementById('preview-section-person').style.display = 'block';
     document.getElementById('preview-kindergarten-person').textContent = selectedKindergarten;
-    updatePersonImportButton();
+
+    // 根据验证结果更新界面
+    let errorMessage = '';
+
+    if (hasChildNameError) {
+        errorMessage = childNameErrorMessage;
+    } else if (hasBirthOrderError) {
+        errorMessage = birthOrderErrorMessage;
+    } else if (hasChildIdError) {
+        errorMessage = childIdErrorMessage;
+    } else if (hasFatherNameError) {
+        errorMessage = fatherNameErrorMessage;
+    } else if (hasFatherIdError) {
+        errorMessage = fatherIdErrorMessage;
+    } else if (hasMotherNameError) {
+        errorMessage = motherNameErrorMessage;
+    } else if (hasMotherIdError) {
+        errorMessage = motherIdErrorMessage;
+    }
+
+    if (errorMessage) {
+        showPersonMessage('error-message-person', errorMessage, 'error');
+        disablePersonImportButton();
+    } else {
+        hidePersonMessage();
+        updatePersonImportButton();
+    }
 }
 
+
+// check(检查)person(人)duplicates(副本),检查的是之前创建储存人员数据的数组personExcelData
 function checkPersonDuplicates() {
-    const idMap = {};
-    
-    personExcelData.forEach(person => {
-        if (person.childId) {
-            idMap[person.childId] = (idMap[person.childId] || 0) + 1;
+    const idMap = {};  // map(直接翻译是地图)
+
+    //(forEach)遍历personExcelData
+    personExcelData.forEach(person => {   //箭头回调函数  等同于person=把{}里面计算完都是内容赋值给person
+        if (person.childId) {   // 如果person有childId(这个是自己定义的一个变量，孩子ID（D列）)
+            /*
+            第一次运行的时候 idMap={空的}，
+            先运行右边的idMap[person.childId],因为是空的所以是undefined（因为属性不存在）
+            idMap是一个{}，[person.childId]是key,  idMap[person.childId]取的是idMap的[person.childId]这是key的value
+            undefined || 0 // → 0（因为undefined是假值）
+            0 + 1 // → 1
+            赋值后：
+            idMap[person.childId] = 这个才是给idMap[person.childId]这个key赋值，
+            idMap = {
+                '371502202210230016': 1  // 现在这个属性存在了，值是1
+            }
+            */
+            idMap[person.childId] = (idMap[person.childId] || 0) + 1;  
         }
     });
-    
+    //(forEach)再次遍历personExcelData
     personExcelData.forEach(person => {
+        // 如果person有childId,并且idMap[person.childId]大于1(说明有重复的)
         if (person.childId && idMap[person.childId] > 1) {
-            person.isDuplicate = true;
-            duplicateIds.add(person.childId);
+            person.isDuplicate = true;  //标记为有重复的
+            duplicateIds.add(person.childId); //把这个重复的id添加到在最上面创建一个Set集合里
         }
     });
 }
 
+// 网页表格渲染
 function renderPersonPreview() {
     const tbody = document.getElementById('preview-body-person');
     tbody.innerHTML = '';
@@ -224,13 +448,19 @@ function renderPersonPreview() {
             row.classList.add('duplicate-row');
         }
 
+        // 为每一行设置数据索引，便于后续操作
+        row.setAttribute('data-person-index', index);
+
+        // 构建表格行的HTML内容
         row.innerHTML = `
             <td>${index + 1}</td>
-            <td>${person.childName}</td>
-            <td>${person.birthOrder}</td>
-            <td>${formatIdNumber(person.childId)}</td>
-            <td>${person.fatherName}</td>
-            <td>${person.motherName}</td>
+            <td class="${!person.childName ? 'error-cell' : ''}">${person.childName}</td>
+            <td class="birth-order-cell ${!person.birthOrder || (person.birthOrder !== 2 && person.birthOrder !== 3) ? 'error-cell' : ''}">${person.birthOrder}</td>
+            <td class="${!person.childId || person.childId.length !== 18 || !/^\d+$/.test(person.childId) ? 'error-cell' : ''}">${formatIdNumber(person.childId)}</td>
+            <td class="${!person.fatherName ? 'error-cell' : ''}">${person.fatherName}</td>
+            <td class="${!person.fatherId || person.fatherId.length !== 18 || !/^\d+$/.test(person.fatherId) ? 'error-cell' : ''}">${formatIdNumber(person.fatherId)}</td>
+            <td class="${!person.motherName ? 'error-cell' : ''}">${person.motherName}</td>
+            <td class="${!person.motherId || person.motherId.length !== 18 || !/^\d+$/.test(person.motherId) ? 'error-cell' : ''}">${formatIdNumber(person.motherId)}</td>
             <td>
                 ${person.isDuplicate ? '<span style="color:red">Excel重复</span>' : 
                 person.isDbDuplicate ? '<span style="color:red">数据库重复</span>' : '正常'}
@@ -241,6 +471,60 @@ function renderPersonPreview() {
                 </button>
             </td>
         `;
+        
+        // 在行添加到tbody后，为错误单元格添加高亮样式
+        const errorCells = row.querySelectorAll('.error-cell');
+        errorCells.forEach(cell => {
+            cell.style.color = '#d93025';
+            cell.style.fontWeight = 'bold';
+            cell.style.backgroundColor = '#ffebee';
+            cell.style.border = '1px solid #ffcdd2';
+            
+            // 根据单元格类型设置不同的提示文本
+            const cellIndex = Array.from(cell.parentNode.cells).indexOf(cell);
+            switch(cellIndex) {
+                case 1: // 孩子姓名
+                    cell.title = '孩子姓名不能为空';
+                    break;
+                case 2: // 孩次
+                    cell.title = '孩次不能为空或只能为2、3';
+                    break;
+                case 3: // 孩子身份证
+                    if (!person.childId) {
+                        cell.title = '婴幼儿身份证号码不能为空';
+                    } else if (person.childId.length !== 18) {
+                        cell.title = `婴幼儿身份证号码长度必须为18位，当前为${person.childId.length}位`;
+                    } else if (!/^\d+$/.test(person.childId)) {
+                        cell.title = '婴幼儿身份证号码必须为纯数字';
+                    }
+                    break;
+                case 4: // 父亲姓名
+                    cell.title = '父亲姓名不能为空';
+                    break;
+                case 5: // 父亲身份证
+                    if (!person.fatherId) {
+                        cell.title = '父亲身份证号码不能为空';
+                    } else if (person.fatherId.length !== 18) {
+                        cell.title = `父亲身份证号码长度必须为18位，当前为${person.fatherId.length}位`;
+                    } else if (!/^\d+$/.test(person.fatherId)) {
+                        cell.title = '父亲身份证号码必须为纯数字';
+                    }
+                    break;
+                case 6: // 母亲姓名
+                    cell.title = '母亲姓名不能为空';
+                    break;
+                case 7: // 母亲身份证
+                    if (!person.motherId) {
+                        cell.title = '母亲身份证号码不能为空';
+                    } else if (person.motherId.length !== 18) {
+                        cell.title = `母亲身份证号码长度必须为18位，当前为${person.motherId.length}位`;
+                    } else if (!/^\d+$/.test(person.motherId)) {
+                        cell.title = '母亲身份证号码必须为纯数字';
+                    }
+                    break;
+            }
+        });
+        
         tbody.appendChild(row);
     });
 
@@ -248,6 +532,30 @@ function renderPersonPreview() {
         showPersonMessage('warning-message-person', `检测到 ${duplicateIds.size} 个重复的身份证号（红色标记）`);
     }
 }
+
+// 添加CSS样式（可以在页面头部添加）
+const style = document.createElement('style');
+style.textContent = `
+    .error-cell {
+        color: #d93025 !important;
+        font-weight: bold !important;
+        background-color: #ffebee !important;
+        border: 1px solid #ffcdd2 !important;
+    }
+    .error-cell:hover::after {
+        content: attr(title);
+        position: absolute;
+        background: #333;
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        z-index: 1000;
+        margin-top: 20px;
+        margin-left: 10px;
+    }
+`;
+document.head.appendChild(style);
 
 
 // 删除人员函数
@@ -259,14 +567,13 @@ function deletePerson(index) {
     }
 }
 
-
+// 导入(import)人员(person)数据(data)
 function importPersonData() {
     if (personExcelData.length === 0) {
         showPersonMessage('error-message-person', '没有数据可导入');
         return;
     }
-    
-    
+    // 数据(data)代发送(to send)
     const dataToSend = {
         kindergarten: selectedKindergarten,
         persons: personExcelData
@@ -297,11 +604,14 @@ function importPersonData() {
             result.duplicateIds.forEach(id => {
                 personExcelData.forEach(p => { if (p.childId === id) p.isDbDuplicate = true; });
             });
-
+            // 网页表格渲染
             renderPersonPreview();
             updatePersonImportButton();  // 禁用导入
             showPersonMessage('warning-message-person', `检测到重复数据，不允许导入`);
         } else {
+            // 清空人员预览数据及相关界面元素
+            clearPersonPreview()
+            // 网页表格渲染
             renderPersonPreview();
             updatePersonImportButton();
 
@@ -329,9 +639,10 @@ function importPersonData() {
     });
 
 }
-
+// updata(上传信息)person(人)import(导入)button(按钮)
 function updatePersonImportButton() {
     const importBtn = document.getElementById('import-btn-person');
+    // 禁用状态（disabled = true）：当以上任意条件满足时，disabled是button的一个属性
     importBtn.disabled = !selectedKindergarten || personExcelData.length === 0 || duplicateIds.size > 0;
 }
 
@@ -414,6 +725,7 @@ function formatFileSize(bytes) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
+// 显示(shuow)人员(person)状态(status)
 function showPersonStatus(text, progress) {
     const statusBar = document.getElementById('status-bar-person');
     const statusText = document.getElementById('status-text-person');
@@ -428,12 +740,13 @@ function hidePersonStatus() {
     document.getElementById('status-bar-person').style.display = 'none';
 }
 
+// 显示红色
 function showPersonMessage(elementId, message) {
     const element = document.getElementById(elementId);
     if (!element) return;   // 元素不存在直接返回
     element.textContent = message;
     element.style.display = 'block';
-    setTimeout(() => { element.style.display = 'none'; }, 5000);
+    setTimeout(() => { element.style.display = 'none'; }, 10000);
 }
 
 function showAddMessage(elementId, message) {
@@ -441,4 +754,69 @@ function showAddMessage(elementId, message) {
     element.textContent = message;
     element.style.display = 'block';
     setTimeout(() => { element.style.display = 'none'; }, 3000);
+}
+
+// 禁用导入按钮
+function disablePersonImportButton() {
+    const importButton = document.getElementById('import-person-button'); // 请替换为实际的按钮ID
+    if (importButton) {
+        importButton.disabled = true;
+        importButton.style.backgroundColor = '#ccc';
+        importButton.style.cursor = 'not-allowed';
+    }
+}
+
+// // 更新导入按钮状态（在renderPersonPreview或已有的updatePersonImportButton中）
+// function updatePersonImportButton() {
+//     const importButton = document.getElementById('import-person-button');
+//     if (importButton) {
+//         const hasErrors = personExcelData.some(person => person.hasError);
+//         const hasDuplicates = personExcelData.some(person => person.isDuplicate);
+        
+//         importButton.disabled = hasErrors || hasDuplicates;
+//         importButton.style.backgroundColor = hasErrors || hasDuplicates ? '#ccc' : '';
+//         importButton.style.cursor = hasErrors || hasDuplicates ? 'not-allowed' : '';
+//     }
+// }
+
+// 隐藏错误消息
+function hidePersonMessage() {
+    const element = document.getElementById('error-message-person');
+    if (element) {
+        element.style.display = 'none';
+    }
+}
+
+/**
+ * 清空人员预览数据及相关界面元素
+ */
+function clearPersonPreview() {
+    // 1. 清空数据数组
+    personExcelData = [];
+    
+    // 2. 清空重复ID集合
+    if (duplicateIds && duplicateIds.clear) {
+        duplicateIds.clear();
+    }
+    // 3. 清空预览表格内容
+    const tbody = document.getElementById('preview-body-person');
+    if (tbody) {
+        tbody.innerHTML = '';
+    }
+    // 5. 清空文件输入框
+    const fileInput = document.getElementById('file-input-person');
+    if (fileInput) {
+        fileInput.value = '';
+    }
+    // 6. 隐藏文件信息显示
+    const fileInfo = document.getElementById('file-info-person');
+    if (fileInfo) {
+        fileInfo.style.display = 'none';
+    }
+    
+    loadKindergarten()
+
+    // 8. 更新导入按钮状态
+    updatePersonImportButton();
+    console.log('人员预览数据已清空');
 }
