@@ -1020,6 +1020,7 @@
           </div>
         </div>
       </div>
+
       <!-- 数据统计分析系统 -->
       <div class="system-content" id="stats-system">
         <div class="main-content">
@@ -1054,6 +1055,9 @@
                     <span style="margin: 0 10px; color: #666">至</span>
                     <input type="date" id="end-date" placeholder="结束日期" />
                   </div>
+                  <div style="font-size: 12px; color: #666; margin-top: 5px">
+                    不选择时间范围则显示全部数据
+                  </div>
                 </div>
 
                 <div class="form-group">
@@ -1073,6 +1077,15 @@
                   <i class="fas fa-search"></i> 查询数据
                 </button>
 
+                <!-- 在查询按钮后面添加重置按钮 -->
+                <button
+                  class="btn"
+                  onclick="resetFilters()"
+                  style="width: 100%; margin-top: 10px"
+                >
+                  <i class="fas fa-redo"></i> 重置条件
+                </button>
+
                 <button
                   class="btn"
                   onclick="exportStatsData()"
@@ -1080,6 +1093,14 @@
                 >
                   <i class="fas fa-download"></i> 导出数据
                 </button>
+
+                <!-- 添加加载状态指示器 -->
+                <div
+                  id="loading-indicator"
+                  style="display: none; text-align: center; padding: 20px"
+                >
+                  <i class="fas fa-spinner fa-spin"></i> 加载中...
+                </div>
               </div>
             </div>
           </div>

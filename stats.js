@@ -4,52 +4,17 @@ let pageSize = 10;
 let totalRecords = 0;
 let currentData = [];
 
-// 日期格式化函数
-function formatDate(dateString) {
-    if (!dateString) return '';
-    
-    // 处理各种日期格式
-    if (typeof dateString === 'string') {
-        // YYYYMMDD 格式
-        if (/^\d{8}$/.test(dateString)) {
-            const year = dateString.substring(0, 4);
-            const month = dateString.substring(4, 6);
-            const day = dateString.substring(6, 8);
-            return `${year}-${month}-${day}`;
-        }
-        
-        // 处理带时间戳的日期
-        if (dateString.includes('T') || dateString.includes(' ')) {
-            const date = new Date(dateString);
-            if (!isNaN(date.getTime())) {
-                const year = date.getFullYear();
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const day = String(date.getDate()).padStart(2, '0');
-                return `${year}-${month}-${day}`;
-            }
-        }
-        
-        // 其他格式直接返回
-        return dateString;
-    }
-    
-    // Date 对象
-    if (dateString instanceof Date && !isNaN(date.getTime())) {
-        const year = dateString.getFullYear();
-        const month = String(dateString.getMonth() + 1).padStart(2, '0');
-        const day = String(dateString.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    }
-    
-    return String(dateString || '');
-}
-
 // 页面加载时初始化
 document.addEventListener('DOMContentLoaded', function() {
     initStatsPage();
+    // 页面加载完成后立即加载数据
+    loadStatsData();
 });
 
 function initStatsPage() {
+    // 不设置默认日期，让时间条件为空
+    // setDefaultDateRange(); // 注释掉这行
+    
     // 绑定分页事件
     document.getElementById('page-size').addEventListener('change', function(e) {
         pageSize = parseInt(e.target.value);
@@ -71,14 +36,33 @@ function initStatsPage() {
         }
     });
     
-    // 绑定搜索事件
-    document.getElementById('search-btn').addEventListener('click', searchData);
+    // 绑定输入框回车事件
+    document.getElementById('keyword-search').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            searchData();
+        }
+    });
     
-    // 绑定导出事件
-    document.getElementById('export-btn').addEventListener('click', exportStatsData);
+    // 绑定筛选条件变化事件（实时更新）
+    document.getElementById('stats-kindergarten-select').addEventListener('change', function() {
+        currentPage = 1;
+        loadStatsData();
+    });
     
-    // 默认加载数据
-    loadStatsData();
+    document.getElementById('stats-birth-order').addEventListener('change', function() {
+        currentPage = 1;
+        loadStatsData();
+    });
+    
+    document.getElementById('start-date').addEventListener('change', function() {
+        currentPage = 1;
+        loadStatsData();
+    });
+    
+    document.getElementById('end-date').addEventListener('change', function() {
+        currentPage = 1;
+        loadStatsData();
+    });
 }
 
 // 查询数据
@@ -97,22 +81,40 @@ function loadStatsData() {
     
     showLoading();
     
-    // 模拟API调用
+    // 构建请求参数
+    const requestData = {
+        kindergarten: kindergarten,
+        birthOrder: birthOrder,
+        keyword: keyword,
+        page: currentPage,
+        pageSize: pageSize
+    };
+    
+    // 只有在用户选择了时间时才添加时间条件
+    if (startDate) {
+        requestData.startDate = startDate;
+    }
+    if (endDate) {
+        requestData.endDate = endDate;
+    }
+    
+    console.log('发送统计请求:', requestData);
+    
+    // 发送API请求
     fetch('http://localhost/kindergarten/stats.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            kindergarten: kindergarten,
-            birthOrder: birthOrder,
-            startDate: startDate,
-            endDate: endDate,
-            keyword: keyword,
-            page: currentPage,
-            pageSize: pageSize
-        })
+        body: JSON.stringify(requestData)
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
+        console.log('收到统计响应:', data);
+        
         if (data.success) {
             currentData = data.records || [];
             totalRecords = data.totalCount || 0;
@@ -133,124 +135,145 @@ function loadStatsData() {
     });
 }
 
-// 渲染数据表格（更新列）
+// 渲染统计表格
 function renderStatsTable() {
     const tbody = document.getElementById('stats-body');
-    if (!tbody) return;
     
-    tbody.innerHTML = '';
-    
-    if (currentData.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="10" style="text-align: center; color: #999; padding: 20px;">
-                    暂无数据
-                </td>
-            </tr>
-        `;
+    if (!currentData || currentData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: #999">暂无数据</td></tr>';
         return;
     }
     
-    currentData.forEach((item, index) => {
-        const row = document.createElement('tr');
-        const serialNumber = (currentPage - 1) * pageSize + index + 1;
+    let html = '';
+    currentData.forEach((record, index) => {
+        const rowNumber = (currentPage - 1) * pageSize + index + 1;
         
-        row.innerHTML = `
-            <td>${serialNumber}</td>
-            <td>${item.childName || ''}</td>
-            <td>${item.birthOrder || ''}孩</td>
-            <td>${formatIdNumber(item.childId || '')}</td>
-            <td>${item.kindergarten || ''}</td>
-            <td>${item.fatherName || ''}</td>
-            <td>${item.motherName || ''}</td>
-            <td>${formatDate(item.createTime) || ''}</td>
-            <td>${formatCurrency(item.subsidyAmount || 0)}</td>
-            <td>${getStatusBadge(item.status)}</td>
+        html += `
+            <tr>
+                <td>${rowNumber}</td>
+                <td>${escapeHtml(record.childName || '')}</td>
+                <td>${getBirthOrderText(record.birthOrder)}</td>
+                <td>${formatIdNumber(record.childId || '')}</td>
+                <td>${escapeHtml(record.kindergarten || '')}</td>
+                <td>${escapeHtml(record.fatherName || '')}</td>
+                <td>${escapeHtml(record.motherName || '')}</td>
+                <td>${formatDate(record.createTime)}</td>
+                <td>${formatCurrency(record.subsidyAmount || 0)}</td>
+                <td>${getStatusBadge(record.status || 'active')}</td>
+            </tr>
         `;
-        
-        tbody.appendChild(row);
     });
+    
+    tbody.innerHTML = html;
+}
+
+// 更新统计摘要
+function updateStatsSummary(summary) {
+    document.getElementById('total-people-count').textContent = (summary.totalCount || 0).toLocaleString();
+    document.getElementById('total-subsidy-amount').textContent = formatCurrency(summary.totalSubsidy || 0);
+    document.getElementById('second-child-count').textContent = (summary.secondChildCount || 0).toLocaleString();
+    document.getElementById('second-child-subsidy').textContent = formatCurrency(summary.secondChildSubsidy || 0);
+    document.getElementById('third-child-count').textContent = (summary.thirdChildCount || 0).toLocaleString();
+    document.getElementById('third-child-subsidy').textContent = formatCurrency(summary.thirdChildSubsidy || 0);
+    document.getElementById('kindergarten-count').textContent = (summary.kindergartenCount || 0).toLocaleString();
 }
 
 // 更新分页信息
 function updatePagination() {
     const totalPages = Math.ceil(totalRecords / pageSize);
-    const prevBtn = document.getElementById('prev-page');
-    const nextBtn = document.getElementById('next-page');
     const pageInfo = document.getElementById('page-info');
     const paginationInfo = document.getElementById('pagination-info');
+    const prevButton = document.getElementById('prev-page');
+    const nextButton = document.getElementById('next-page');
     
-    if (prevBtn) prevBtn.disabled = currentPage <= 1;
-    if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
-    if (pageInfo) pageInfo.textContent = `第 ${currentPage} 页`;
-    if (paginationInfo) paginationInfo.textContent = `第 ${currentPage} 页，共 ${totalPages} 页，${totalRecords} 条记录`;
+    pageInfo.textContent = `第 ${currentPage} 页`;
+    paginationInfo.textContent = `第 ${currentPage} 页，共 ${totalPages} 页，总计 ${totalRecords} 条记录`;
+    
+    prevButton.disabled = currentPage <= 1;
+    nextButton.disabled = currentPage >= totalPages;
 }
 
-// 更新统计摘要
-function updateStatsSummary(summary) {
-    const elements = {
-        'total-people-count': summary.totalCount || 0,
-        'total-subsidy-amount': formatCurrency(summary.totalSubsidy || 0),
-        'second-child-count': summary.secondChildCount || 0,
-        'second-child-subsidy': formatCurrency(summary.secondChildSubsidy || 0),
-        'third-child-count': summary.thirdChildCount || 0,
-        'third-child-subsidy': formatCurrency(summary.thirdChildSubsidy || 0),
-        'kindergarten-count': summary.kindergartenCount || 0
-    };
+// 重置筛选条件
+function resetFilters() {
+    document.getElementById('stats-kindergarten-select').value = '';
+    document.getElementById('stats-birth-order').value = '';
+    document.getElementById('keyword-search').value = '';
     
-    Object.entries(elements).forEach(([id, value]) => {
-        const element = document.getElementById(id);
-        if (element) element.textContent = value;
-    });
+    // 清空时间条件
+    document.getElementById('start-date').value = '';
+    document.getElementById('end-date').value = '';
+    
+    currentPage = 1;
+    loadStatsData();
 }
 
 // 导出数据
 function exportStatsData() {
-    if (currentData.length === 0) {
+    if (!currentData || currentData.length === 0) {
         alert('没有数据可导出');
         return;
     }
     
-    try {
-        // 创建CSV格式数据
-        const headers = ['序号', '孩子姓名', '孩次', '身份证号', '托育机构', '父亲姓名', '母亲姓名', '创建时间', '补贴金额', '状态'];
-        const csvData = [headers];
-        
-        currentData.forEach((item, index) => {
-            const row = [
-                index + 1,
-                item.childName || '',
-                (item.birthOrder || '') + '孩',
-                item.childId || '',
-                item.kindergarten || '',
-                item.fatherName || '',
-                item.motherName || '',
-                formatDate(item.createTime) || '',
-                item.subsidyAmount || 0,
-                getStatusText(item.status)
-            ];
-            csvData.push(row);
-        });
-        
-        const csvContent = csvData.map(row => 
-            row.map(field => `"${field}"`).join(',')
-        ).join('\n');
-        
-        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `统计数据_${new Date().toISOString().split('T')[0]}.csv`;
-        link.click();
-        URL.revokeObjectURL(url);
-        
-    } catch (error) {
-        console.error('导出失败:', error);
-        showError('导出数据失败: ' + error.message);
-    }
+    // 这里可以添加导出逻辑
+    alert('导出功能开发中...');
+    console.log('导出数据:', currentData);
 }
 
 // 辅助函数
+function getBirthOrderText(birthOrder) {
+    const orderMap = {
+        1: '一孩',
+        2: '二孩',
+        3: '三孩及以上'
+    };
+    return orderMap[birthOrder] || `第${birthOrder}孩`;
+}
+
+function escapeHtml(unsafe) {
+    if (unsafe === null || unsafe === undefined) return '';
+    return unsafe
+        .toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function formatDate(dateString) {
+    if (!dateString) return '';
+    
+    if (typeof dateString === 'string') {
+        if (/^\d{8}$/.test(dateString)) {
+            const year = dateString.substring(0, 4);
+            const month = dateString.substring(4, 6);
+            const day = dateString.substring(6, 8);
+            return `${year}-${month}-${day}`;
+        }
+        
+        if (dateString.includes('T') || dateString.includes(' ')) {
+            const date = new Date(dateString);
+            if (!isNaN(date.getTime())) {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+        }
+        
+        return dateString;
+    }
+    
+    if (dateString instanceof Date && !isNaN(dateString.getTime())) {
+        const year = dateString.getFullYear();
+        const month = String(dateString.getMonth() + 1).padStart(2, '0');
+        const day = String(dateString.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    
+    return String(dateString || '');
+}
+
 function formatIdNumber(id) {
     if (!id || id.length !== 18) return id || '';
     return id.substring(0, 6) + '****' + id.substring(14);
@@ -258,24 +281,13 @@ function formatIdNumber(id) {
 
 function getStatusBadge(status) {
     const statusMap = {
-        'active': '<span class="status-success">正常</span>',
-        'inactive': '<span class="status-warning">停用</span>',
-        'pending': '<span class="status-warning">待审核</span>',
-        'approved': '<span class="status-success">已审核</span>',
-        'rejected': '<span class="status-error">已拒绝</span>'
+        'active': '<span style="color: #28a745; font-weight: bold;">正常</span>',
+        'inactive': '<span style="color: #ffc107; font-weight: bold;">停用</span>',
+        'pending': '<span style="color: #ffc107; font-weight: bold;">待审核</span>',
+        'approved': '<span style="color: #28a745; font-weight: bold;">已审核</span>',
+        'rejected': '<span style="color: #dc3545; font-weight: bold;">已拒绝</span>'
     };
-    return statusMap[status] || '<span class="status-error">未知</span>';
-}
-
-function getStatusText(status) {
-    const statusMap = {
-        'active': '正常',
-        'inactive': '停用',
-        'pending': '待审核',
-        'approved': '已审核',
-        'rejected': '已拒绝'
-    };
-    return statusMap[status] || '未知';
+    return statusMap[status] || '<span style="color: #6c757d; font-weight: bold;">未知</span>';
 }
 
 function showLoading() {
@@ -293,31 +305,9 @@ function hideLoading() {
 }
 
 function showError(message) {
-    alert(message); // 可以替换为更友好的提示方式
-    console.error('Error:', message);
+    alert('错误: ' + message);
 }
 
-// 格式化货币显示
 function formatCurrency(amount) {
     return '¥' + (amount || 0).toLocaleString('zh-CN');
 }
-
-// 重置筛选条件
-function resetFilters() {
-    document.getElementById('stats-kindergarten-select').value = '';
-    document.getElementById('stats-birth-order').value = '';
-    document.getElementById('start-date').value = '';
-    document.getElementById('end-date').value = '';
-    document.getElementById('keyword-search').value = '';
-    
-    currentPage = 1;
-    loadStatsData();
-}
-
-// 添加重置按钮事件监听（如果HTML中有重置按钮）
-document.addEventListener('DOMContentLoaded', function() {
-    const resetBtn = document.getElementById('reset-btn');
-    if (resetBtn) {
-        resetBtn.addEventListener('click', resetFilters);
-    }
-});
