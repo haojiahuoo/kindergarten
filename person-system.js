@@ -435,7 +435,7 @@ function renderPersonPreview() {
         // 数据为空时显示占位行
         const emptyRow = document.createElement('tr');
         emptyRow.innerHTML = `
-            <td colspan="8" style="text-align:center; color:#999;">暂无数据</td>
+            <td colspan="10" style="text-align:center; color:#999;">暂无数据</td>
         `;
         tbody.appendChild(emptyRow);
         return;
