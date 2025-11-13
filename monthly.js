@@ -16,7 +16,7 @@ let holidayData = [];         // 存储节假日数据
  * 页面初始化
  */
 document.addEventListener('DOMContentLoaded', function() {
-    loadKindergartens();          // 加载托育机构列表
+    loadmonthlyKindergartens();   // 加载托育机构列表
     initDragAndDrop();            // 初始化拖拽功能
     setupEventListeners();        // 设置事件监听器
     updateSelectedDate();         // 更新选中日期显示
@@ -26,8 +26,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 /**
  * 加载托育机构列表
- */
-async function loadKindergartens() {
+monthly */
+async function loadmonthlyKindergartens() {
     try {
         const response = await fetch('http://localhost/kindergarten/getKindergartens.php');
         const data = await response.json();
@@ -1233,7 +1233,7 @@ function clearMonthlyPreview() {
     updateButtons();
     
     // 11. 重新加载幼儿园列表（如果需要）
-    // loadKindergartens();
+    // loadmonthlyKindergartens();
     
     console.log('月度预览数据已清空');
 }

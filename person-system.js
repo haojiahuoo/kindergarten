@@ -5,6 +5,7 @@ let duplicateIds = new Set();    //作用：创建一个Set集合，用于存储
 
 // 初始化页面
 document.addEventListener('DOMContentLoaded', function() {
+    window.lastQueryResults = []; // 初始化查询结果
     // 加载幼儿园数据
     loadKindergarten();
     // 初始化人员拖放功能
@@ -20,7 +21,7 @@ async function loadKindergarten() {
         const response = await fetch('http://localhost/kindergarten/getKindergartens.php');
         const data = await response.json();
 
-        if (data.success) {
+        if (data.success) {                         
             const select = document.getElementById('kindergarten-select');
             select.innerHTML = ''; // 清空旧数据
 
@@ -573,71 +574,88 @@ function importPersonData() {
         showPersonMessage('error-message-person', '没有数据可导入');
         return;
     }
-    // 数据(data)代发送(to send)
-    const dataToSend = {
-        kindergarten: selectedKindergarten,
-        persons: personExcelData
-    };
-    console.log(JSON.stringify(dataToSend)); 
-    showPersonStatus('正在导入数据...', 30);
-    document.getElementById('import-btn-person').disabled = true;
+     // 先获取幼儿园记录数来计算序号
+    getKindergartenRecordCount(selectedKindergarten).then(kindergartenCount => {
+        const startSerial = (kindergartenCount || 0) + 1;
+        
+        // 为每条数据分配正确的序号
+        personExcelData.forEach((person, index) => {
+            person.serialNumber = startSerial + index;
+        });
+        // 数据(data)代发送(to send)
+        const dataToSend = {
+            kindergarten: selectedKindergarten,
+            persons: personExcelData
+        };
+        console.log(JSON.stringify(dataToSend)); 
+        showPersonStatus('正在导入数据...', 30);
+        document.getElementById('import-btn-person').disabled = true;
 
-    fetch('import.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dataToSend)
-    })
-    .then(res => {
-        if (!res.ok) throw new Error("HTTP 状态码: " + res.status);
-        return res.json();
-    })
-    .then(data => {
-        console.log("导入成功:", data);
-        return data;   // 这里必须 return
-    })
+        fetch('import.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dataToSend)
+        })
+        .then(res => {
+            if (!res.ok) throw new Error("HTTP 状态码: " + res.status);
+            return res.json();
+        })
+        .then(data => {
+            console.log("导入成功:", data);
+            return data;   // 这里必须 return
+        })
 
-    .then(result => {
-        console.log("返回数据:", result);
+        .then(result => {
+            console.log("返回数据:", result);
 
-        if (result.duplicateIds && result.duplicateIds.length > 0) {
-            // 标红
-            result.duplicateIds.forEach(id => {
-                personExcelData.forEach(p => { if (p.childId === id) p.isDbDuplicate = true; });
-            });
-            // 网页表格渲染
-            renderPersonPreview();
-            updatePersonImportButton();  // 禁用导入
-            showPersonMessage('warning-message-person', `检测到重复数据，不允许导入`);
-        } else {
-            // 清空人员预览数据及相关界面元素
-            clearPersonPreview()
-            // 网页表格渲染
-            renderPersonPreview();
-            updatePersonImportButton();
-
-            if (result.success) {
-                showPersonStatus('导入成功', 100);
-                showPersonMessage('success-message', 
-                    `导入完成！成功: ${result.stats.success}`);
+            if (result.duplicateIds && result.duplicateIds.length > 0) {
+                // 标红
+                result.duplicateIds.forEach(id => {
+                    personExcelData.forEach(p => { if (p.childId === id) p.isDbDuplicate = true; });
+                });
+                // 网页表格渲染
+                renderPersonPreview();
+                updatePersonImportButton();  // 禁用导入
+                showPersonMessage('warning-message-person', `检测到重复数据，不允许导入`);
             } else {
-                showPersonStatus('导入失败', 0);
-                showPersonMessage('error-message-person', '导入失败: ' + result.message);
-            }
-        }
+                // 保存序号信息用于打印
+                window.lastImportSerials = {
+                    startSerial: startSerial,
+                    count: personExcelData.length
+                };
+                // 导入成功后自动打印
+                printPersonInfo();
+                // 清空人员预览数据及相关界面元素
+                clearPersonPreview()
+                // 网页表格渲染
+                renderPersonPreview();
+                updatePersonImportButton();
 
-        // 延时 2 秒再恢复按钮
-        setTimeout(() => {
+                if (result.success) {
+                    showPersonStatus('导入成功', 100);
+                    showPersonMessage('success-message', 
+                        `导入完成！成功: ${result.stats.success}`);
+                } else {
+                    showPersonStatus('导入失败', 0);
+                    showPersonMessage('error-message-person', '导入失败: ' + result.message);
+                }
+            }
+
+            // 延时 2 秒再恢复按钮
+            setTimeout(() => {
+                hidePersonStatus();
+                document.getElementById('import-btn-person').disabled = false;
+            }, 2000);
+
+        })
+        .catch(error => {
             hidePersonStatus();
             document.getElementById('import-btn-person').disabled = false;
-        }, 2000);
-
-    })
-    .catch(error => {
-        hidePersonStatus();
-        document.getElementById('import-btn-person').disabled = false;
-        showPersonMessage('error-message-person', '请求或处理出错: ' + error.message);
+            showPersonMessage('error-message-person', '请求或处理出错: ' + error.message);
+        });
+    }).catch(error => {
+        showPersonMessage('error-message-person', '获取序号失败: ' + error.message);
     });
-
 }
 // updata(上传信息)person(人)import(导入)button(按钮)
 function updatePersonImportButton() {
@@ -819,4 +837,490 @@ function clearPersonPreview() {
     // 8. 更新导入按钮状态
     updatePersonImportButton();
     console.log('人员预览数据已清空');
+}
+
+// 综合查询人员函数
+function queryPersonData() {
+    clearQueryResults()
+    const childName = document.getElementById('child-name').value.trim();
+    const birthOrder = document.getElementById('birth-order').value;
+    const childId = document.getElementById('child-id').value.trim();
+    const fatherName = document.getElementById('father-name').value.trim();
+    const fatherId = document.getElementById('father-id').value.trim();
+    const motherName = document.getElementById('mother-name').value.trim();
+    const motherId = document.getElementById('mother-id').value.trim();
+    
+    // 获取幼儿园选择
+    const kindergartenSelect = document.getElementById('kindergarten-select');
+    const selectedKindergartenId = kindergartenSelect?.value;
+    const isNewKindergarten = selectedKindergartenId === 'new';
+    
+    // 判断是否有查询条件
+    const hasQueryConditions = childName || childId || fatherName || fatherId || motherName || motherId || birthOrder;
+    const hasKindergartenSelected = selectedKindergartenId && !isNewKindergarten;
+    
+    console.log('查询条件详情:', {
+        childName,
+        birthOrder,
+        childId,
+        fatherName,
+        fatherId,
+        motherName,
+        motherId,
+        hasQueryConditions,
+        hasKindergartenSelected
+    });
+    
+    // 如果没有查询条件但选择了幼儿园，就显示该幼儿园全部人员
+    if (!hasQueryConditions && hasKindergartenSelected) {
+        // 构建只包含幼儿园的查询参数
+        const queryParams = {
+            kindergarten: selectedKindergartenId
+        };
+        
+        console.log('查询全部人员参数:', queryParams);
+        
+        showPersonStatus('正在查询幼儿园全部人员...', 30);
+        
+        fetch('http://localhost/kindergarten/queryPerson.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(queryParams)
+        })
+        .then(res => {
+            console.log('响应状态:', res.status);
+            if (!res.ok) throw new Error("HTTP 状态码: " + res.status);
+            return res.json();
+        })
+        .then(data => {
+            console.log("完整查询结果:", data);
+            if (data.success && data.persons && data.persons.length > 0) {
+                // 显示查询结果在预览区域
+                displayQueryResults(data.persons);
+                showPersonMessage('error-message-person', `查询到 ${data.persons.length} 条人员信息`);
+            } else {
+                // 在预览区域显示"未找到数据"
+                displayNoResults();
+                showPersonMessage('error-message-person', data.message || '该幼儿园暂无人员信息');
+            }
+        })
+        .catch(error => {
+            console.error('查询失败:', error);
+            showPersonMessage('error-message-person', '查询失败: ' + error.message);
+        })
+        .finally(() => {
+            hidePersonStatus();
+        });
+        return;
+    }
+    
+    // 如果有查询条件，按原有逻辑执行
+    // 至少需要一个查询条件或选择了幼儿园
+    if (!hasQueryConditions && !hasKindergartenSelected) {
+        showAddMessage('add-error-message', '请至少输入一个查询条件或选择托育机构');
+        return;
+    }
+    
+    // 构建查询参数
+    const queryParams = {};
+    if (childName) queryParams.childName = childName;
+    if (birthOrder) queryParams.birthOrder = parseInt(birthOrder);
+    if (childId) queryParams.childId = childId;
+    if (fatherName) queryParams.fatherName = fatherName;
+    if (fatherId) queryParams.fatherId = fatherId;
+    if (motherName) queryParams.motherName = motherName;
+    if (motherId) queryParams.motherId = motherId;
+    
+    // 添加幼儿园查询条件
+    if (hasKindergartenSelected) {
+        queryParams.kindergarten = selectedKindergartenId; // 使用ID查询
+    } else if (selectedKindergarten) {
+        queryParams.kindergarten = selectedKindergarten; // 使用名称查询
+    }
+    
+    console.log('查询参数:', queryParams);
+    
+    showPersonStatus('正在查询...', 30);
+    
+    fetch('http://localhost/kindergarten/queryPerson.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(queryParams)
+    })
+    .then(res => {
+        console.log('响应状态:', res.status);
+        if (!res.ok) throw new Error("HTTP 状态码: " + res.status);
+        return res.json();
+    })
+    .then(data => {
+        console.log("完整查询结果:", data);
+        if (data.success && data.persons && data.persons.length > 0) {
+            // 保存查询结果用于打印
+            window.lastQueryResults = data.persons;
+            // 显示查询结果在预览区域
+            displayQueryResults(data.persons);
+            showPersonMessage('error-message-person', data.message);
+        } else {
+            // 清空之前的查询结果
+            window.lastQueryResults = [];
+            // 在预览区域显示"未找到数据"
+            displayNoResults();
+            showPersonMessage('error-message-person', data.message || '未找到符合条件的人员信息');
+        }
+    })
+    .catch(error => {
+        console.error('查询失败:', error);
+        showPersonMessage('error-message-person', '查询失败: ' + error.message);
+    })
+    .finally(() => {
+        hidePersonStatus();
+    });
+}
+// 显示查询结果
+function displayQueryResults(persons) {
+    const tbody = document.getElementById('preview-body-person');
+    
+    // 更新标题显示查询结果
+    const kindergartenName = persons[0]?.kindergartenName || selectedKindergarten;
+    document.getElementById('preview-kindergarten-person').textContent = 
+        `${kindergartenName} - 查询结果 (${persons.length} 条记录)`;
+        if (persons.length > 0){
+            clearQueryForm()
+        }
+    tbody.innerHTML = '';
+    
+    persons.forEach((person, index) => {
+        const row = document.createElement('tr');
+        
+        row.innerHTML = `
+            <td>${person.serialNumber || index + 1}</td>
+            <td>${person.childName || ''}</td>
+            <td>${person.birthOrder || ''}</td>
+            <td>${formatIdNumber(person.childId)}</td>
+            <td>${person.fatherName || ''}</td>
+            <td>${formatIdNumber(person.fatherId)}</td>
+            <td>${person.motherName || ''}</td>
+            <td>${formatIdNumber(person.motherId)}</td>
+            <td>${person.kindergartenName || ''}</td>
+            <td>
+                <button class="btn btn-info" onclick="editPerson('${person.childId}')" style="padding:4px 8px; font-size:12px;">
+                    编辑
+                </button>
+                <button class="btn btn-danger" onclick="deletePersonFromDB('${person.childId}')" style="padding:4px 8px; font-size:12px; margin-top:2px;">
+                    删除
+                </button>
+            </td>
+        `;
+        
+        tbody.appendChild(row);
+    });
+    
+    // 显示预览区域
+    document.getElementById('preview-section-person').style.display = 'block';
+}
+
+// 显示无结果信息
+function displayNoResults() {
+    const tbody = document.getElementById('preview-body-person');
+    
+    // 更新标题
+    document.getElementById('preview-kindergarten-person').textContent = 
+        `${selectedKindergarten || '查询'} - 无结果`;
+    
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="10" style="text-align:center; color:#999; padding:40px;">
+                <i class="fas fa-search" style="font-size:48px; color:#ddd; margin-bottom:10px; display:block;"></i>
+                未找到符合条件的人员信息
+            </td>
+        </tr>
+    `;
+    
+    // 显示预览区域
+    document.getElementById('preview-section-person').style.display = 'block';
+}
+
+// 清空查询结果
+function clearQueryResults() {
+    const tbody = document.getElementById('preview-body-person');
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="10" style="text-align:center; color:#999; padding:40px;">
+                <i class="fas fa-database" style="font-size:48px; color:#ddd; margin-bottom:10px; display:block;"></i>
+                暂无数据
+            </td>
+        </tr>
+    `;
+}
+
+// 从数据库删除人员
+function deletePersonFromDB(childId) {
+    if (!confirm('确定要删除这条人员记录吗？此操作不可恢复！')) {
+        return;
+    }
+    
+    showPersonStatus('正在删除...', 30);
+    
+    fetch('http://localhost/kindergarten/deletePerson.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ childId: childId })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            showAddMessage('add-success-message', '删除成功');
+            // 重新查询刷新列表
+            queryPersonData();
+        } else {
+            showAddMessage('add-error-message', '删除失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        showAddMessage('add-error-message', '删除失败: ' + error.message);
+    })
+    .finally(() => {
+        hidePersonStatus();
+    });
+}
+
+// 更新打印功能
+function printPersonInfo() {
+    console.log('=== 打印调试信息 ===');
+    console.log('personExcelData:', personExcelData);
+    console.log('lastQueryResults:', window.lastQueryResults);
+    
+    // 优先使用查询结果，如果没有则使用导入数据
+    let printData = [];
+    let dataSource = ''; // 标识数据来源
+    
+    if (window.lastQueryResults && window.lastQueryResults.length > 0) {
+        console.log('使用查询结果进行打印');
+        printData = window.lastQueryResults;
+        dataSource = 'query';
+    } else if (personExcelData && personExcelData.length > 0) {
+        console.log('使用导入数据进行打印');
+        printData = personExcelData;
+        dataSource = 'import';
+    } else {
+        console.log('没有可打印的数据');
+        showPersonMessage('error-message-person', '没有数据可打印，请先查询或导入数据');
+        return;
+    }
+    
+    console.log('最终打印数据:', printData);
+    console.log('最终打印数据长度:', printData.length);
+    console.log('数据来源:', dataSource);
+    
+    // 直接使用数据中的 serialNumber（在导入时已计算）
+    const printDataWithSerial = printData.map((person, index) => ({
+        ...person,
+        // 使用数据库中的 serialNumber，如果没有则用索引+1
+        correctSerial: person.serialNumber || (index + 1)
+    }));
+    
+    // 计算原有记录数（起始序号-1）
+    const startSerial = printDataWithSerial[0]?.correctSerial || 1;
+    const originalCount = startSerial - 1;
+    
+    // 根据数据来源生成不同的统计信息
+    const getSummaryHTML = () => {
+        if (dataSource === 'import') {
+            // 导入数据的统计信息
+            return `
+            <div class="summary">
+                <div class="summary-line">
+                    <span class="summary-item"><strong>统计信息：</strong></span>
+                    <span class="summary-item">新增记录数: ${printData.length} 条</span>
+                    <span class="summary-item">序号范围: ${printDataWithSerial[0]?.correctSerial || 1} - ${printDataWithSerial[printDataWithSerial.length - 1]?.correctSerial || 1}</span>
+                    <span class="summary-item">原有记录数: ${originalCount} 条</span>
+                    <span class="summary-item">打印时间: ${new Date().toLocaleString()}</span>
+                </div>
+            </div>
+            `;
+        } else {
+            // 查询数据的统计信息
+            return `
+            <div class="summary">
+                <div class="summary-line">
+                    <span class="summary-item"><strong>统计信息：</strong></span>
+                    <span class="summary-item">记录数: ${printData.length} 条</span>
+                    <span class="summary-item">序号范围: ${printDataWithSerial[0]?.correctSerial || 1} - ${printDataWithSerial[printDataWithSerial.length - 1]?.correctSerial || 1}</span>
+                    <span class="summary-item">打印时间: ${new Date().toLocaleString()}</span>
+                </div>
+            </div>
+            `;
+        }
+    };
+    
+    // 根据数据来源生成不同的标题
+    const getTitle = () => {
+        if (dataSource === 'import') {
+            return `${selectedKindergarten}新增人员信息表`;
+        } else {
+            return `${selectedKindergarten}人员信息查询结果`;
+        }
+    };
+    
+    // 创建打印窗口
+    const printWindow = window.open('', '_blank');
+    const printContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>人员信息报表 - ${selectedKindergarten}</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+            .header h1 { margin: 0; color: #333; }
+            .print-date { text-align: right; color: #666; margin-bottom: 20px; }
+            
+            /* 竖向表格样式 */
+            .vertical-table { 
+                width: 100%; 
+                border-collapse: collapse; 
+                margin-top: 10px;
+                font-size: 14px;
+            }
+            .vertical-table th, .vertical-table td { 
+                border: 1px solid #ddd; 
+                padding: 10px 8px; 
+                text-align: left; 
+                vertical-align: top;
+            }
+            .vertical-table th { 
+                background-color: #f5f5f5; 
+                font-weight: bold; 
+                width: 12%; 
+                text-align: center;
+            }
+            .vertical-table td { 
+                width: 13%; 
+                text-align: center;
+            }
+            .person-row { 
+                border-bottom: 2px solid #333;
+            }
+            
+            /* 统计信息一行显示 */
+            .summary { 
+                margin-top: 20px; 
+                padding: 12px; 
+                background-color: #f5f5f5; 
+                border-radius: 4px; 
+                border: 1px solid #ddd;
+                font-size: 14px;
+            }
+            .summary-line {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+            }
+            .summary-item {
+                margin: 0 10px;
+                white-space: nowrap;
+            }
+            @media print {
+                body { margin: 15mm; }
+                .no-print { display: none; }
+                .person-row { page-break-inside: avoid; }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>${getTitle()}</h1>
+        </div>
+        <div class="print-date">
+            打印时间: ${new Date().toLocaleString()}
+        </div>
+        
+        <table class="vertical-table">
+            <thead>
+                <tr>
+                    <th>序号</th>
+                    <th>孩子姓名</th>
+                    <th>孩次</th>
+                    <th>孩子身份证号</th>
+                    <th>父亲姓名</th>
+                    <th>父亲身份证号</th>
+                    <th>母亲姓名</th>
+                    <th>母亲身份证号</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${printDataWithSerial.map(person => `
+                    <tr class="person-row">
+                        <td>${person.correctSerial}</td>
+                        <td>${person.childName || ''}</td>
+                        <td>${person.birthOrder || ''}</td>
+                        <td>${formatIdNumber(person.childId)}</td>
+                        <td>${person.fatherName || ''}</td>
+                        <td>${formatIdNumber(person.fatherId)}</td>
+                        <td>${person.motherName || ''}</td>
+                        <td>${formatIdNumber(person.motherId)}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+        
+        ${getSummaryHTML()}
+        
+        <div class="no-print" style="margin-top: 20px; text-align: center;">
+            <button onclick="window.print()" style="padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; margin: 5px;">
+                打印报表
+            </button>
+            <button onclick="window.close()" style="padding: 10px 20px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; margin: 5px;">
+                关闭窗口
+            </button>
+        </div>
+    </body>
+    </html>
+    `;
+    
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    
+    // 自动触发打印
+    setTimeout(() => {
+        printWindow.print();
+    }, 500);
+}
+
+// 获取选定幼儿园的总记录数
+function getKindergartenRecordCount(kindergartenName) {
+    return fetch('http://localhost/kindergarten/getKindergartenCount.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kindergarten: kindergartenName })
+    })
+    .then(res => {
+        if (!res.ok) throw new Error("HTTP 状态码: " + res.status);
+        return res.json();
+    })
+    .then(data => {
+        if (data.success) {
+            return data.kindergartenCount || 0;
+        } else {
+            throw new Error(data.message || '获取幼儿园记录数失败');
+        }
+    });
+}
+// 清空查询表单
+function clearQueryForm() {
+    document.getElementById('child-name').value = '';
+    document.getElementById('birth-order').value = '';
+    document.getElementById('child-id').value = '';
+    document.getElementById('father-name').value = '';
+    document.getElementById('father-id').value = '';
+    document.getElementById('mother-name').value = '';
+    document.getElementById('mother-id').value = '';
+    
+    // 清空预览区域
+    clearQueryResults();
+    document.getElementById('preview-kindergarten-person').textContent = '查询结果';
+    
+    // 使用现有的showPersonMessage显示成功消息
+    showPersonMessage('error-message-person', '查询条件已清空');
 }

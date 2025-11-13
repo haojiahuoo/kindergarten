@@ -26,99 +26,224 @@ try {
 // 获取POST数据
 $input = json_decode(file_get_contents('php://input'), true);
 
-// 构建查询条件
-$whereConditions = [];
-$params = [];
+// 构建查询条件 - 为两个表分别构建
+$personsConditions = [];
+$monthlyConditions = [];
+$personsParams = [];
+$monthlyParams = [];
 
-// 托育机构筛选 - 根据 kindergarten_id 查询
+// 托育机构筛选
 if (!empty($input['kindergarten'])) {
-    // 这里需要根据幼儿园名称查询 kindergarten_id
-    // 先查询幼儿园名称对应的ID
-    $kindergartenStmt = $pdo->prepare("SELECT id FROM kindergartens WHERE name = ?");
-    $kindergartenStmt->execute([$input['kindergarten']]);
-    $kindergarten = $kindergartenStmt->fetch(PDO::FETCH_ASSOC);
-    
-    if ($kindergarten) {
-        $whereConditions[] = "kindergarten_id = :kindergarten_id";
-        $params[':kindergarten_id'] = $kindergarten['id'];
+    if (is_numeric($input['kindergarten'])) {
+        $personsConditions[] = "kp.kindergarten_id = :persons_kindergarten_id";
+        $monthlyConditions[] = "md.kindergarten_id = :monthly_kindergarten_id";
+        $personsParams[':persons_kindergarten_id'] = $input['kindergarten'];
+        $monthlyParams[':monthly_kindergarten_id'] = $input['kindergarten'];
+    } elseif ($input['kindergarten'] === 'new') {
+        $personsConditions[] = "kp.kindergarten_id IS NULL";
+        $monthlyConditions[] = "md.kindergarten_id IS NULL";
     }
 }
 
 // 孩次筛选
 if (!empty($input['birthOrder'])) {
-    $whereConditions[] = "birth_order = :birth_order";
-    $params[':birth_order'] = $input['birthOrder'];
+    $personsConditions[] = "kp.birth_order = :persons_birth_order";
+    $monthlyConditions[] = "md.birth_order = :monthly_birth_order";
+    $personsParams[':persons_birth_order'] = $input['birthOrder'];
+    $monthlyParams[':monthly_birth_order'] = $input['birthOrder'];
 }
 
-// 时间范围筛选
+// 时间范围筛选（主要针对 monthly_data 表）
 if (!empty($input['startDate'])) {
-    $whereConditions[] = "created_at >= :start_date";
-    $params[':start_date'] = $input['startDate'];
+    $monthlyConditions[] = "md.year_month >= :start_date";
+    $monthlyParams[':start_date'] = $input['startDate'];
 }
 if (!empty($input['endDate'])) {
-    $whereConditions[] = "created_at <= :end_date";
-    $params[':end_date'] = $input['endDate'] . ' 23:59:59';
+    $monthlyConditions[] = "md.year_month <= :end_date";
+    $monthlyParams[':end_date'] = $input['endDate'] . ' 23:59:59';
 }
 
-// 关键词搜索
+// 季度筛选
+if (!empty($input['quarter']) && empty($input['startDate']) && empty($input['endDate'])) {
+    $quarter = intval($input['quarter']);
+    $year = date('Y');
+    
+    switch ($quarter) {
+        case 1:
+            $startDate = $year . '-01-01';
+            $endDate = $year . '-03-31';
+            break;
+        case 2:
+            $startDate = $year . '-04-01';
+            $endDate = $year . '-06-30';
+            break;
+        case 3:
+            $startDate = $year . '-07-01';
+            $endDate = $year . '-09-30';
+            break;
+        case 4:
+            $startDate = $year . '-10-01';
+            $endDate = $year . '-12-31';
+            break;
+        default:
+            $startDate = '';
+            $endDate = '';
+    }
+    
+    if ($startDate && $endDate) {
+        $monthlyConditions[] = "md.year_month >= :quarter_start_date";
+        $monthlyConditions[] = "md.year_month <= :quarter_end_date";
+        $monthlyParams[':quarter_start_date'] = $startDate;
+        $monthlyParams[':quarter_end_date'] = $endDate . ' 23:59:59';
+    }
+}
+
+// 关键词搜索 - 使用表别名
 if (!empty($input['keyword'])) {
-    $whereConditions[] = "(child_name LIKE :keyword OR child_id LIKE :keyword)";
-    $params[':keyword'] = '%' . $input['keyword'] . '%';
+    $personsConditions[] = "(kp.child_name LIKE :persons_keyword OR kp.child_id LIKE :persons_keyword)";
+    $monthlyConditions[] = "(md.name LIKE :monthly_keyword OR md.id_number LIKE :monthly_keyword)";
+    $personsParams[':persons_keyword'] = '%' . $input['keyword'] . '%';
+    $monthlyParams[':monthly_keyword'] = '%' . $input['keyword'] . '%';
 }
 
-$whereClause = '';
-if (!empty($whereConditions)) {
-    $whereClause = 'WHERE ' . implode(' AND ', $whereConditions);
+// 构建完整的WHERE子句
+$personsWhereClause = '';
+$monthlyWhereClause = '';
+
+if (!empty($personsConditions)) {
+    $personsWhereClause = 'WHERE ' . implode(' AND ', $personsConditions);
+}
+
+if (!empty($monthlyConditions)) {
+    $monthlyWhereClause = 'WHERE ' . implode(' AND ', $monthlyConditions);
 }
 
 try {
-    // 1. 查询总人数和统计摘要
-    // 注意：这里假设补贴金额是固定值，如果需要从其他表获取请修改
-    $summarySql = "
+    // 1. 从 kindergarten_persons 表统计基础数据 - 使用表别名 kp
+    $personsStatsSql = "
         SELECT 
-            COUNT(*) as totalCount,
-            COUNT(DISTINCT kindergarten_id) as kindergartenCount,
-            SUM(CASE WHEN birth_order = 2 THEN 1 ELSE 0 END) as secondChildCount,
-            SUM(CASE WHEN birth_order = 3 THEN 1 ELSE 0 END) as thirdChildCount,
-            -- 补贴金额计算，这里假设每个孩子固定补贴1500元，请根据实际情况修改
-            COUNT(*) * 1500 as totalSubsidy,
-            SUM(CASE WHEN birth_order = 2 THEN 1 ELSE 0 END) * 1500 as secondChildSubsidy,
-            SUM(CASE WHEN birth_order = 3 THEN 1 ELSE 0 END) * 1500 as thirdChildSubsidy
-        FROM kindergarten_persons 
-        $whereClause
+            -- 机构数量
+            COUNT(DISTINCT kp.kindergarten_id) as kindergartenCount,
+            
+            -- 建档人数统计（按儿童去重）
+            COUNT(DISTINCT kp.child_id) as totalCount,
+            COUNT(DISTINCT CASE WHEN kp.birth_order = '2' THEN kp.child_id END) as secondChildCount,
+            COUNT(DISTINCT CASE WHEN kp.birth_order = '3' THEN kp.child_id END) as thirdChildCount,
+            
+            -- 至今三岁以下统计（根据身份证号计算年龄）
+            COUNT(DISTINCT CASE WHEN 
+                TIMESTAMPDIFF(YEAR, 
+                    STR_TO_DATE(SUBSTRING(kp.child_id, 7, 8), '%Y%m%d'),
+                    CURDATE()
+                ) < 3 
+                THEN kp.child_id END
+            ) as underThreeTotal,
+            COUNT(DISTINCT CASE WHEN 
+                kp.birth_order = '2' AND 
+                TIMESTAMPDIFF(YEAR, 
+                    STR_TO_DATE(SUBSTRING(kp.child_id, 7, 8), '%Y%m%d'),
+                    CURDATE()
+                ) < 3 
+                THEN kp.child_id END
+            ) as underThreeSecond,
+            COUNT(DISTINCT CASE WHEN 
+                kp.birth_order = '3' AND 
+                TIMESTAMPDIFF(YEAR, 
+                    STR_TO_DATE(SUBSTRING(kp.child_id, 7, 8), '%Y%m%d'),
+                    CURDATE()
+                ) < 3 
+                THEN kp.child_id END
+            ) as underThreeThird
+        FROM kindergarten_persons kp
+        $personsWhereClause
     ";
     
-    $stmt = $pdo->prepare($summarySql);
-    $stmt->execute($params);
-    $summary = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare($personsStatsSql);
+    $stmt->execute($personsParams);
+    $personsStats = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    // 2. 查询分页数据
+    // 2. 从 monthly_data 表统计补贴相关数据（按人次固定补贴）- 使用表别名 md
+    $monthlyStatsSql = "
+        SELECT 
+            -- 申领补贴人次统计
+            COUNT(*) as totalApplyCount,
+            COUNT(CASE WHEN md.birth_order = '2' THEN 1 ELSE NULL END) as secondChildApplyCount,
+            COUNT(CASE WHEN md.birth_order = '3' THEN 1 ELSE NULL END) as thirdChildApplyCount,
+            
+            -- 补贴金额统计（按人次固定补贴，半日托减半）
+            SUM(
+                CASE 
+                    WHEN md.birth_order = '2' AND md.product_type = '半日托' THEN 150  -- 二孩半日托：150元
+                    WHEN md.birth_order = '2' THEN 300                             -- 二孩全日托：300元
+                    WHEN md.birth_order = '3' AND md.product_type = '半日托' THEN 200  -- 三孩半日托：200元
+                    WHEN md.birth_order = '3' THEN 400                             -- 三孩全日托：400元
+                    ELSE 0
+                END
+            ) as totalSubsidy,
+            
+            -- 二孩申请金额
+            SUM(
+                CASE 
+                    WHEN md.birth_order = '2' AND md.product_type = '半日托' THEN 150
+                    WHEN md.birth_order = '2' THEN 300
+                    ELSE 0
+                END
+            ) as secondChildSubsidy,
+            
+            -- 三孩申请金额
+            SUM(
+                CASE 
+                    WHEN md.birth_order = '3' AND md.product_type = '半日托' THEN 200
+                    WHEN md.birth_order = '3' THEN 400
+                    ELSE 0
+                END
+            ) as thirdChildSubsidy
+        FROM monthly_data md
+        $monthlyWhereClause
+    ";
+    
+    $stmt = $pdo->prepare($monthlyStatsSql);
+    $stmt->execute($monthlyParams);
+    $monthlyStats = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    // 3. 合并两个统计结果
+    $summary = array_merge($personsStats ?: [], $monthlyStats ?: []);
+    
+    // 4. 查询分页数据（从 monthly_data 表显示补贴记录）- 使用表别名 md 和 k
     $page = $input['page'] ?? 1;
     $pageSize = $input['pageSize'] ?? 10;
     $offset = ($page - 1) * $pageSize;
     
     $recordsSql = "
         SELECT 
-            p.child_name,
-            p.birth_order,
-            p.child_id,
-            p.father_name,
-            p.mother_name,
-            p.created_at,
-            p.kindergarten_id,
+            md.name as child_name,
+            md.birth_order,
+            md.id_number as child_id,
+            md.parent_name,
+            md.kindergarten_name,
+            md.year_month,
+            md.kindergarten_id,
             k.name as kindergarten_name,
-            -- 补贴金额，这里假设固定1500元，请根据实际情况修改
-            1500 as subsidy_amount,
-            'active' as status
-        FROM kindergarten_persons p
-        LEFT JOIN kindergartens k ON p.kindergarten_id = k.id
-        $whereClause
-        ORDER BY p.created_at DESC 
+            md.product_type,
+            md.payment_months,
+            -- 计算补贴金额（按人次固定补贴，半日托减半）
+            CASE 
+                WHEN md.birth_order = '2' AND md.product_type = '半日托' THEN 150  -- 二孩半日托：150元
+                WHEN md.birth_order = '2' THEN 300                               -- 二孩全日托：300元
+                WHEN md.birth_order = '3' AND md.product_type = '半日托' THEN 200  -- 三孩半日托：200元
+                WHEN md.birth_order = '3' THEN 400                               -- 三孩全日托：400元
+                ELSE 0
+            END as subsidy_amount,
+            md.status
+        FROM monthly_data md
+        LEFT JOIN kindergartens k ON md.kindergarten_id = k.id
+        $monthlyWhereClause
+        ORDER BY md.year_month DESC 
         LIMIT :offset, :pageSize
     ";
     
     $stmt = $pdo->prepare($recordsSql);
-    foreach ($params as $key => $value) {
+    foreach ($monthlyParams as $key => $value) {
         $stmt->bindValue($key, $value);
     }
     $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
@@ -134,11 +259,13 @@ try {
             'birthOrder' => $record['birth_order'] ?? '',
             'childId' => $record['child_id'] ?? '',
             'kindergarten' => $record['kindergarten_name'] ?? '',
-            'fatherName' => $record['father_name'] ?? '',
-            'motherName' => $record['mother_name'] ?? '',
-            'createTime' => $record['created_at'] ?? '',
-            'subsidyAmount' => $record['subsidy_amount'] ?? 1500,
-            'status' => $record['status'] ?? 'active'
+            'fatherName' => $record['parent_name'] ?? '',
+            'motherName' => '', // 如果没有单独的母亲姓名字段
+            'createTime' => $record['year_month'] ?? '',
+            'subsidyAmount' => $record['subsidy_amount'] ?? 0,
+            'status' => $record['status'] ?? 'active',
+            'productType' => $record['product_type'] ?? '',
+            'paymentMonths' => $record['payment_months'] ?? 0
         ];
     }
     
@@ -148,13 +275,19 @@ try {
         'records' => $processedRecords,
         'totalCount' => $summary['totalCount'] ?? 0,
         'summary' => [
+            'kindergartenCount' => $summary['kindergartenCount'] ?? 0,
             'totalCount' => $summary['totalCount'] ?? 0,
-            'totalSubsidy' => $summary['totalSubsidy'] ?? 0,
             'secondChildCount' => $summary['secondChildCount'] ?? 0,
-            'secondChildSubsidy' => $summary['secondChildSubsidy'] ?? 0,
             'thirdChildCount' => $summary['thirdChildCount'] ?? 0,
-            'thirdChildSubsidy' => $summary['thirdChildSubsidy'] ?? 0,
-            'kindergartenCount' => $summary['kindergartenCount'] ?? 0
+            'underThreeTotal' => $summary['underThreeTotal'] ?? 0,
+            'underThreeSecond' => $summary['underThreeSecond'] ?? 0,
+            'underThreeThird' => $summary['underThreeThird'] ?? 0,
+            'totalApplyCount' => $summary['totalApplyCount'] ?? 0,
+            'secondChildApplyCount' => $summary['secondChildApplyCount'] ?? 0,
+            'thirdChildApplyCount' => $summary['thirdChildApplyCount'] ?? 0,
+            'totalSubsidy' => $summary['totalSubsidy'] ?? 0,
+            'secondChildSubsidy' => $summary['secondChildSubsidy'] ?? 0,
+            'thirdChildSubsidy' => $summary['thirdChildSubsidy'] ?? 0
         ]
     ]);
     

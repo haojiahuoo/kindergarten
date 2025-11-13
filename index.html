@@ -255,6 +255,19 @@
         display: none;
       }
 
+      #birth-order {
+        appearance: none;
+        padding: 12px;
+        border: 2px solid #4ca1af;
+        border-radius: 8px;
+        font-size: 16px;
+        background: white;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234ca1af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        background-size: 16px;
+        padding-right: 35px;
+      }
       /* 月度统计特有样式 */
       .date-selector {
         display: flex;
@@ -498,63 +511,145 @@
       }
 
       /* 统计页面布局调整 */
-      #stats-system .main-content {
-        display: flex;
-        gap: 20px;
-        height: calc(100vh - 200px); /* 设置适当的高度 */
-      }
-
+      /* 左侧查询面板 - 减小宽度 */
       #stats-system .left-panel {
-        flex: 0.4;
-        min-width: 300px;
-        max-width: 400px;
+        flex: 0 0 380px; /* 固定宽度，不伸缩 */
+        min-width: 280px;
+        max-width: 620px;
       }
-
-      #stats-system .right-panel {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
-        min-width: 0; /* 防止flex项目溢出 */
-      }
-
-      /* 统计摘要横向布局 */
-      .stats-summary {
+      .stat-grid-two-rows {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        grid-template-columns: 120px 1fr;
+        grid-template-rows: 1fr 1fr;
         gap: 15px;
         margin-top: 15px;
+        height: 200px; /* 设置固定高度确保两行对齐 */
       }
 
+      /* 双行项目（机构数量） */
+      .stat-item.double-row {
+        grid-row: span 2;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 100%;
+      }
+
+      /* 统计行 */
+      .stat-row {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 10px;
+        align-items: stretch;
+      }
+
+      /* 统计项样式 */
       .stat-item {
         background: white;
-        padding: 15px;
-        border-radius: 8px;
+        padding: 12px 8px;
+        border-radius: 6px;
         border: 1px solid #e0e0e0;
         text-align: center;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
       }
 
+      /* 统计标签 */
       .stat-label {
         display: block;
-        font-size: 12px;
+        font-size: 11px;
         color: #666;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
         font-weight: bold;
+        line-height: 1.2;
       }
 
+      /* 统计数值 */
       .stat-value {
         display: block;
-        font-size: 20px;
+        font-size: 16px;
         font-weight: bold;
         color: #1a2a6c;
+        line-height: 1.2;
       }
 
+      /* 响应式设计 */
+      @media (max-width: 1400px) {
+        .stat-row {
+          grid-template-columns: repeat(3, 1fr);
+        }
+
+        .stat-grid-two-rows {
+          height: auto;
+          grid-template-rows: auto auto;
+        }
+      }
+
+      @media (max-width: 1200px) {
+        .stat-grid-two-rows {
+          grid-template-columns: 100px 1fr;
+          gap: 10px;
+        }
+
+        .stat-item {
+          padding: 10px 6px;
+        }
+
+        .stat-label {
+          font-size: 10px;
+        }
+
+        .stat-value {
+          font-size: 14px;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .stat-grid-two-rows {
+          grid-template-columns: 1fr;
+          grid-template-rows: auto;
+        }
+
+        .stat-item.double-row {
+          grid-row: auto;
+          height: auto;
+        }
+
+        .stat-row {
+          grid-template-columns: repeat(2, 1fr);
+          gap: 8px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .stat-row {
+          grid-template-columns: 1fr;
+        }
+      }
+      /* 第二行的第1、3、5项 - 浅蓝色 */
+      .stat-row:last-child .stat-item:nth-child(1),
+      .stat-row:last-child .stat-item:nth-child(3),
+      .stat-row:last-child .stat-item:nth-child(5) {
+        background: #f8f9ff;
+      }
+
+      /* 第二行的第2、4、6项 - 浅红色 */
+      .stat-row:last-child .stat-item:nth-child(2),
+      .stat-row:last-child .stat-item:nth-child(4),
+      .stat-row:last-child .stat-item:nth-child(6) {
+        background: #fff8f8;
+      }
+      .stat-item.double-row {
+        background: #f0f0f0; /* 机构数量灰色背景 */
+      }
       /* 查询表单样式 */
       .query-form {
         display: flex;
         flex-direction: column;
-        gap: 15px;
+        gap: 3px;
       }
 
       .date-range {
@@ -566,42 +661,96 @@
       .date-range input {
         flex: 1;
       }
+      /* 统计页选择向下的箭头 */
+      #stats-kindergarten-select {
+        appearance: none;
+        padding: 12px;
+        border: 2px solid #4ca1af;
+        border-radius: 8px;
+        font-size: 16px;
+        background: white;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234ca1af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        background-size: 16px;
+        padding-right: 35px;
+      }
+
+      #stats-birth-order {
+        appearance: none;
+        padding: 12px;
+        border: 2px solid #4ca1af;
+        border-radius: 8px;
+        font-size: 16px;
+        background: white;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234ca1af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        background-size: 16px;
+        padding-right: 35px;
+      }
+
+      #quarter-select {
+        appearance: none;
+        padding: 12px;
+        border: 2px solid #4ca1af;
+        border-radius: 8px;
+        font-size: 16px;
+        background: white;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234ca1af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        background-size: 16px;
+        padding-right: 35px;
+      }
+      /* 表格头部布局 */
+      .table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+        gap: 15px;
+      }
+
+      /* 表格标题 */
+      .table-header h2 {
+        margin: 0;
+        font-size: 25px;
+        color: #080000;
+      }
+
+      /* 表格控制项 */
+      .table-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+      }
+
+      /* 分页信息 */
+      #pagination-info {
+        color: #666;
+        font-size: 14px;
+      }
 
       /* 数据表格容器 */
       #stats-system .table-container {
-        max-height: 400px;
+        max-height: 500px;
         overflow: auto;
       }
-
-      /* 响应式调整 */
-      @media (max-width: 1200px) {
-        #stats-system .main-content {
-          flex-direction: column;
-          height: auto;
-        }
-
-        #stats-system .left-panel {
-          max-width: 100%;
-        }
-
-        .stats-summary {
-          grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-        }
+      /* 减小统计摘要和数据列表之间的间距 */
+      #stats-system .right-panel {
+        gap: 0px; /* 从20px调整到12px */
       }
 
-      @media (max-width: 768px) {
-        .stats-summary {
-          grid-template-columns: repeat(2, 1fr);
-        }
+      /* 如果需要更小的间距，可以单独设置 */
+      #stats-system .right-panel .panel:first-child {
+        margin-bottom: 0px;
+      }
 
-        .date-range {
-          flex-direction: column;
-          gap: 5px;
-        }
-
-        .date-range span {
-          margin: 5px 0;
-        }
+      #stats-system .right-panel .panel:last-child {
+        margin-top: 0px;
       }
     </style>
   </head>
@@ -638,10 +787,7 @@
               <div class="panel" style="flex: 1">
                 <h2><i class="fas fa-school"></i> 选择托育机构</h2>
                 <div class="kindergarten-selector">
-                  <select
-                    id="kindergarten-select"
-                    onclick="loadKindergartens()"
-                  >
+                  <select id="kindergarten-select">
                     <option value="">-- 请选择托育机构 --</option>
                     <option value="风貌街实验幼儿园">风貌街实验幼儿园</option>
                     <option value="阳光幼儿园">阳光幼儿园</option>
@@ -693,8 +839,18 @@
                     id="import-btn-person"
                     disabled
                     onclick="importPersonData()"
+                    style="width: 100%"
                   >
                     <i class="fas fa-database"></i> 导入数据
+                  </button>
+                  <!-- 添加打印按钮 -->
+                  <button
+                    class="btn btn-info"
+                    id="print-person-btn"
+                    onclick="printPersonInfo()"
+                    style="margin-top: 15px; width: 100%"
+                  >
+                    <i class="fas fa-print"></i> 打印人员信息
                   </button>
                 </div>
               </div>
@@ -719,8 +875,11 @@
                   </div>
                   <div class="form-group">
                     <label>孩次</label>
-                    <select id="birth-order">
-                      <option value="">请选择孩次</option>
+                    <select
+                      id="birth-order"
+                      style="padding-top: 10px; padding-bottom: 10px"
+                    >
+                      <option value="">请选择</option>
                       <option value="2">2</option>
                       <option value="3">3</option>
                     </select>
@@ -789,6 +948,14 @@
                   <i class="fas fa-plus-circle"></i> 添加人员
                 </button>
 
+                <button
+                  class="btn btn-success"
+                  id="query-person-btn"
+                  onclick="queryPersonData()"
+                  style="margin-top: 15px; width: 100%"
+                >
+                  <i class="fas fa-search"></i> 查询人员
+                </button>
                 <div class="message success" id="add-success-message"></div>
                 <div class="message error" id="add-error-message"></div>
               </div>
@@ -1049,6 +1216,20 @@
                 </div>
 
                 <div class="form-group">
+                  <label>季度查询</label>
+                  <select id="quarter-select">
+                    <option value="">全部季度</option>
+                    <option value="1">第一季度 (1-3月)</option>
+                    <option value="2">第二季度 (4-6月)</option>
+                    <option value="3">第三季度 (7-9月)</option>
+                    <option value="4">第四季度 (10-12月)</option>
+                  </select>
+                  <div style="font-size: 12px; color: #666; margin-top: 5px">
+                    选择季度后，时间范围将自动禁用
+                  </div>
+                </div>
+
+                <div class="form-group">
                   <label>时间范围</label>
                   <div class="date-range">
                     <input type="date" id="start-date" placeholder="开始日期" />
@@ -1112,45 +1293,103 @@
           >
             <!-- 统计摘要面板 -->
             <div class="panel">
-              <h2><i class="fas fa-chart-pie"></i> 统计摘要</h2>
               <div class="stats-summary">
-                <div class="stat-item">
-                  <span class="stat-label">总人数</span>
-                  <span class="stat-value" id="total-people-count">0</span>
-                </div>
-                <div class="stat-item">
-                  <span class="stat-label">总补贴金额</span>
-                  <span class="stat-value" id="total-subsidy-amount">0</span>
-                </div>
-                <div class="stat-item">
-                  <span class="stat-label">二孩人数</span>
-                  <span class="stat-value" id="second-child-count">0</span>
-                </div>
-                <div class="stat-item">
-                  <span class="stat-label">二孩补贴金额</span>
-                  <span class="stat-value" id="second-child-subsidy">0</span>
-                </div>
-                <div class="stat-item">
-                  <span class="stat-label">三孩人数</span>
-                  <span class="stat-value" id="third-child-count">0</span>
-                </div>
-                <div class="stat-item">
-                  <span class="stat-label">三孩补贴金额</span>
-                  <span class="stat-value" id="third-child-subsidy">0</span>
-                </div>
-                <div class="stat-item">
-                  <span class="stat-label">机构数量</span>
-                  <span class="stat-value" id="kindergarten-count">0</span>
+                <!-- <h2><i class="fas fa-chart-pie"></i> 统计摘要</h2> -->
+                <div
+                  class="stat-grid-two-rows"
+                  style="margin-top: 0px; height: 150px"
+                >
+                  <!-- 第一列：机构数量（占据两行） -->
+                  <div class="stat-item double-row">
+                    <span class="stat-label">机构数量</span>
+                    <span class="stat-value" id="kindergarten-count">0</span>
+                  </div>
+
+                  <!-- 第一行数据 -->
+                  <div class="stat-row">
+                    <!-- 建档人数 -->
+                    <div class="stat-item">
+                      <span class="stat-label">建档总人数</span>
+                      <span class="stat-value" id="total-count">0</span>
+                    </div>
+
+                    <div class="stat-item">
+                      <span class="stat-label">其中二孩人数</span>
+                      <span class="stat-value" id="second-child-count">0</span>
+                    </div>
+
+                    <div class="stat-item">
+                      <span class="stat-label">其中三孩人数</span>
+                      <span class="stat-value" id="third-child-count">0</span>
+                    </div>
+
+                    <!-- 至今三岁以下 -->
+                    <div class="stat-item">
+                      <span class="stat-label">至今三岁以下</span>
+                      <span class="stat-value" id="under-three-total">0</span>
+                    </div>
+
+                    <div class="stat-item">
+                      <span class="stat-label">其中二孩</span>
+                      <span class="stat-value" id="under-three-second">0</span>
+                    </div>
+
+                    <div class="stat-item">
+                      <span class="stat-label">其中三孩</span>
+                      <span class="stat-value" id="under-three-third">0</span>
+                    </div>
+                  </div>
+
+                  <!-- 第二行数据 -->
+                  <div class="stat-row">
+                    <!-- 申领补贴人数 -->
+                    <div class="stat-item">
+                      <span class="stat-label">申领补贴人次</span>
+                      <span class="stat-value" id="total-apply-count">0</span>
+                    </div>
+
+                    <div class="stat-item">
+                      <span class="stat-label">总申请金额</span>
+                      <span class="stat-value" id="total-subsidy-amount"
+                        >0</span
+                      >
+                    </div>
+
+                    <div class="stat-item">
+                      <span class="stat-label">其中二孩申请人次</span>
+                      <span class="stat-value" id="second-child-apply-count"
+                        >0</span
+                      >
+                    </div>
+
+                    <div class="stat-item">
+                      <span class="stat-label">二孩申请金额</span>
+                      <span class="stat-value" id="second-child-subsidy"
+                        >0</span
+                      >
+                    </div>
+
+                    <div class="stat-item">
+                      <span class="stat-label">其中三孩申请人次</span>
+                      <span class="stat-value" id="third-child-apply-count"
+                        >0</span
+                      >
+                    </div>
+
+                    <div class="stat-item">
+                      <span class="stat-label">三孩申请金额</span>
+                      <span class="stat-value" id="third-child-subsidy">0</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
             <!-- 数据展示面板 -->
-            <div class="panel" style="flex: 1">
-              <h2><i class="fas fa-table"></i> 数据列表</h2>
-
-              <div class="table-controls" style="margin-bottom: 15px">
-                <div style="display: flex; gap: 10px; align-items: center">
+            <div class="panel" style="flex: 1; padding-bottom: 12px">
+              <div class="table-header" style="margin-bottom: 0px">
+                <h2><i class="fas fa-table"></i> 数据列表</h2>
+                <div class="table-controls">
                   <span>每页显示：</span>
                   <select id="page-size" style="padding: 5px">
                     <option value="10">10条</option>
@@ -1158,9 +1397,7 @@
                     <option value="50">50条</option>
                     <option value="100">100条</option>
                   </select>
-                  <span id="pagination-info" style="margin-left: auto">
-                    第 1 页，共 1 页
-                  </span>
+                  <span id="pagination-info"> 第 1 页，共 1 页 </span>
                 </div>
               </div>
 
@@ -1173,9 +1410,8 @@
                       <th>孩次</th>
                       <th>身份证号</th>
                       <th>托育机构</th>
-                      <th>父亲姓名</th>
-                      <th>母亲姓名</th>
-                      <th>录入时间</th>
+                      <th>家长姓名</th>
+                      <th>申请月份</th>
                       <th>补贴金额</th>
                       <th>状态</th>
                     </tr>
@@ -1192,7 +1428,7 @@
 
               <div
                 class="pagination"
-                style="margin-top: 15px; text-align: center"
+                style="margin-top: 0px; text-align: center"
               >
                 <button class="btn" id="prev-page" disabled>上一页</button>
                 <span style="margin: 0 15px" id="page-info">第 1 页</span>
