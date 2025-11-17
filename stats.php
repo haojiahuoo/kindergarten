@@ -1,5 +1,11 @@
 <?php
 // stats.php - 统计数据处理接口
+
+// 开启所有错误显示（仅用于调试）
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
@@ -19,12 +25,19 @@ try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
+    // 确保返回JSON格式的错误信息
     echo json_encode(['success' => false, 'message' => '数据库连接失败: ' . $e->getMessage()]);
     exit;
 }
 
 // 获取POST数据
 $input = json_decode(file_get_contents('php://input'), true);
+
+// 如果JSON解析失败，返回错误
+if (json_last_error() !== JSON_ERROR_NONE) {
+    echo json_encode(['success' => false, 'message' => 'JSON解析失败: ' . json_last_error_msg()]);
+    exit;
+}
 
 // 构建查询条件 - 为两个表分别构建
 $personsConditions = [];
@@ -53,52 +66,54 @@ if (!empty($input['birthOrder'])) {
     $monthlyParams[':monthly_birth_order'] = $input['birthOrder'];
 }
 
-// 时间范围筛选（主要针对 monthly_data 表）
+// 时间范围筛选（主要针对 monthly_data 表）- 使用年月格式
 if (!empty($input['startDate'])) {
-    $monthlyConditions[] = "md.year_month >= :start_date";
-    $monthlyParams[':start_date'] = $input['startDate'];
+    $startMonth = date('Y-m', strtotime($input['startDate']));
+    $monthlyConditions[] = "md.`year_month` >= :start_month";
+    $monthlyParams[':start_month'] = $startMonth;
 }
 if (!empty($input['endDate'])) {
-    $monthlyConditions[] = "md.year_month <= :end_date";
-    $monthlyParams[':end_date'] = $input['endDate'] . ' 23:59:59';
+    $endMonth = date('Y-m', strtotime($input['endDate']));
+    $monthlyConditions[] = "md.`year_month` <= :end_month";
+    $monthlyParams[':end_month'] = $endMonth;
 }
 
-// 季度筛选
+// 季度筛选 - 使用年月格式
 if (!empty($input['quarter']) && empty($input['startDate']) && empty($input['endDate'])) {
     $quarter = intval($input['quarter']);
     $year = date('Y');
     
     switch ($quarter) {
         case 1:
-            $startDate = $year . '-01-01';
-            $endDate = $year . '-03-31';
+            $startMonth = $year . '-01';
+            $endMonth = $year . '-03';
             break;
         case 2:
-            $startDate = $year . '-04-01';
-            $endDate = $year . '-06-30';
+            $startMonth = $year . '-04';
+            $endMonth = $year . '-06';
             break;
         case 3:
-            $startDate = $year . '-07-01';
-            $endDate = $year . '-09-30';
+            $startMonth = $year . '-07';
+            $endMonth = $year . '-09';
             break;
         case 4:
-            $startDate = $year . '-10-01';
-            $endDate = $year . '-12-31';
+            $startMonth = $year . '-10';
+            $endMonth = $year . '-12';
             break;
         default:
-            $startDate = '';
-            $endDate = '';
+            $startMonth = '';
+            $endMonth = '';
     }
     
-    if ($startDate && $endDate) {
-        $monthlyConditions[] = "md.year_month >= :quarter_start_date";
-        $monthlyConditions[] = "md.year_month <= :quarter_end_date";
-        $monthlyParams[':quarter_start_date'] = $startDate;
-        $monthlyParams[':quarter_end_date'] = $endDate . ' 23:59:59';
+    if ($startMonth && $endMonth) {
+        $monthlyConditions[] = "md.`year_month` >= :quarter_start_month";
+        $monthlyConditions[] = "md.`year_month` <= :quarter_end_month";
+        $monthlyParams[':quarter_start_month'] = $startMonth;
+        $monthlyParams[':quarter_end_month'] = $endMonth;
     }
 }
 
-// 关键词搜索 - 使用表别名
+// 关键词搜索
 if (!empty($input['keyword'])) {
     $personsConditions[] = "(kp.child_name LIKE :persons_keyword OR kp.child_id LIKE :persons_keyword)";
     $monthlyConditions[] = "(md.name LIKE :monthly_keyword OR md.id_number LIKE :monthly_keyword)";
@@ -119,18 +134,13 @@ if (!empty($monthlyConditions)) {
 }
 
 try {
-    // 1. 从 kindergarten_persons 表统计基础数据 - 使用表别名 kp
+    // 1. 从 kindergarten_persons 表统计基础数据
     $personsStatsSql = "
         SELECT 
-            -- 机构数量
             COUNT(DISTINCT kp.kindergarten_id) as kindergartenCount,
-            
-            -- 建档人数统计（按儿童去重）
             COUNT(DISTINCT kp.child_id) as totalCount,
             COUNT(DISTINCT CASE WHEN kp.birth_order = '2' THEN kp.child_id END) as secondChildCount,
             COUNT(DISTINCT CASE WHEN kp.birth_order = '3' THEN kp.child_id END) as thirdChildCount,
-            
-            -- 至今三岁以下统计（根据身份证号计算年龄）
             COUNT(DISTINCT CASE WHEN 
                 TIMESTAMPDIFF(YEAR, 
                     STR_TO_DATE(SUBSTRING(kp.child_id, 7, 8), '%Y%m%d'),
@@ -162,26 +172,21 @@ try {
     $stmt->execute($personsParams);
     $personsStats = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    // 2. 从 monthly_data 表统计补贴相关数据（按人次固定补贴）- 使用表别名 md
+    // 2. 从 monthly_data 表统计补贴相关数据
     $monthlyStatsSql = "
         SELECT 
-            -- 申领补贴人次统计
             COUNT(*) as totalApplyCount,
             COUNT(CASE WHEN md.birth_order = '2' THEN 1 ELSE NULL END) as secondChildApplyCount,
             COUNT(CASE WHEN md.birth_order = '3' THEN 1 ELSE NULL END) as thirdChildApplyCount,
-            
-            -- 补贴金额统计（按人次固定补贴，半日托减半）
             SUM(
                 CASE 
-                    WHEN md.birth_order = '2' AND md.product_type = '半日托' THEN 150  -- 二孩半日托：150元
-                    WHEN md.birth_order = '2' THEN 300                             -- 二孩全日托：300元
-                    WHEN md.birth_order = '3' AND md.product_type = '半日托' THEN 200  -- 三孩半日托：200元
-                    WHEN md.birth_order = '3' THEN 400                             -- 三孩全日托：400元
+                    WHEN md.birth_order = '2' AND md.product_type = '半日托' THEN 150
+                    WHEN md.birth_order = '2' THEN 300
+                    WHEN md.birth_order = '3' AND md.product_type = '半日托' THEN 200
+                    WHEN md.birth_order = '3' THEN 400
                     ELSE 0
                 END
             ) as totalSubsidy,
-            
-            -- 二孩申请金额
             SUM(
                 CASE 
                     WHEN md.birth_order = '2' AND md.product_type = '半日托' THEN 150
@@ -189,8 +194,6 @@ try {
                     ELSE 0
                 END
             ) as secondChildSubsidy,
-            
-            -- 三孩申请金额
             SUM(
                 CASE 
                     WHEN md.birth_order = '3' AND md.product_type = '半日托' THEN 200
@@ -206,10 +209,10 @@ try {
     $stmt->execute($monthlyParams);
     $monthlyStats = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    // 3. 合并两个统计结果
+    // 3. 合并统计结果
     $summary = array_merge($personsStats ?: [], $monthlyStats ?: []);
     
-    // 4. 查询分页数据（从 monthly_data 表显示补贴记录）- 使用表别名 md 和 k
+    // 4. 查询分页数据
     $page = $input['page'] ?? 1;
     $pageSize = $input['pageSize'] ?? 10;
     $offset = ($page - 1) * $pageSize;
@@ -226,12 +229,11 @@ try {
             k.name as kindergarten_name,
             md.product_type,
             md.payment_months,
-            -- 计算补贴金额（按人次固定补贴，半日托减半）
             CASE 
-                WHEN md.birth_order = '2' AND md.product_type = '半日托' THEN 150  -- 二孩半日托：150元
-                WHEN md.birth_order = '2' THEN 300                               -- 二孩全日托：300元
-                WHEN md.birth_order = '3' AND md.product_type = '半日托' THEN 200  -- 三孩半日托：200元
-                WHEN md.birth_order = '3' THEN 400                               -- 三孩全日托：400元
+                WHEN md.birth_order = '2' AND md.product_type = '半日托' THEN 150
+                WHEN md.birth_order = '2' THEN 300
+                WHEN md.birth_order = '3' AND md.product_type = '半日托' THEN 200
+                WHEN md.birth_order = '3' THEN 400
                 ELSE 0
             END as subsidy_amount,
             md.status
@@ -251,7 +253,7 @@ try {
     $stmt->execute();
     $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // 处理返回数据，统一字段名
+    // 处理返回数据
     $processedRecords = [];
     foreach ($records as $record) {
         $processedRecords[] = [
@@ -260,7 +262,7 @@ try {
             'childId' => $record['child_id'] ?? '',
             'kindergarten' => $record['kindergarten_name'] ?? '',
             'fatherName' => $record['parent_name'] ?? '',
-            'motherName' => '', // 如果没有单独的母亲姓名字段
+            'motherName' => '',
             'createTime' => $record['year_month'] ?? '',
             'subsidyAmount' => $record['subsidy_amount'] ?? 0,
             'status' => $record['status'] ?? 'active',
@@ -273,7 +275,12 @@ try {
     echo json_encode([
         'success' => true,
         'records' => $processedRecords,
-        'totalCount' => $summary['totalCount'] ?? 0,
+        'totalRecords' => $monthlyStats['totalApplyCount'] ?? 0,
+        'filters' => [
+            'quarter' => $input['quarter'] ?? null,
+            'quarterRange' => isset($startMonth) ? $startMonth . ' 至 ' . $endMonth : null,
+            'note' => '季度筛选仅应用于补贴申领数据，建档人数统计为全部数据'
+        ],
         'summary' => [
             'kindergartenCount' => $summary['kindergartenCount'] ?? 0,
             'totalCount' => $summary['totalCount'] ?? 0,
@@ -293,5 +300,7 @@ try {
     
 } catch (PDOException $e) {
     echo json_encode(['success' => false, 'message' => '数据库查询失败: ' . $e->getMessage()]);
+} catch (Exception $e) {
+    echo json_encode(['success' => false, 'message' => '系统错误: ' . $e->getMessage()]);
 }
 ?>

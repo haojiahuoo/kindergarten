@@ -277,9 +277,9 @@ function processPersonExcelData(data) {
             } else if (processedChildIdValue.length !== 18) {
                 hasChildIdError = true;
                 childIdErrorMessage = `婴幼儿身份证号码长度必须为18位，当前长度为${processedChildIdValue.length}`;
-            } else if (!/^\d+$/.test(processedChildIdValue)) {
+            } else if (!/^\d{17}[\dX]$/.test(processedChildIdValue)) {
                 hasChildIdError = true;
-                childIdErrorMessage = '婴幼儿身份证号码必须全部为数字，不能包含字母或特殊字符';
+                childIdErrorMessage = '婴幼儿身份证号码除最后一位以外必须全部为数字，不能包含字母或特殊字符';
             }
         }
         
@@ -305,9 +305,9 @@ function processPersonExcelData(data) {
             } else if (fatherIdValue.length !== 18) {
                 hasFatherIdError = true;
                 fatherIdErrorMessage = `父亲身份证号码长度必须为18位，当前长度为${fatherIdValue.length}`;
-            } else if (!/^\d+$/.test(fatherIdValue)) {
+            } else if (!/^\d{17}[\dX]$/.test(fatherIdValue)) {
                 hasFatherIdError = true;
-                fatherIdErrorMessage = '父亲身份证号码必须全部为数字，不能包含字母或特殊字符';
+                fatherIdErrorMessage = '父亲身份证号码除最后一位以外必须全部为数字，不能包含字母或特殊字符';
             }
         }
         
@@ -333,9 +333,9 @@ function processPersonExcelData(data) {
             } else if (motherIdValue.length !== 18) {
                 hasMotherIdError = true;
                 motherIdErrorMessage = `母亲身份证号码长度必须为18位，当前长度为${motherIdValue.length}`;
-            } else if (!/^\d+$/.test(motherIdValue)) {
+            } else if (!/^\d{17}[\dX]$/.test(motherIdValue)) {
                 hasMotherIdError = true;
-                motherIdErrorMessage = '母亲身份证号码必须全部为数字，不能包含字母或特殊字符';
+                motherIdErrorMessage = '母亲身份证号码除最后一位以外必须全部为数字，不能包含字母或特殊字符';
             }
         }
         
@@ -457,11 +457,11 @@ function renderPersonPreview() {
             <td>${index + 1}</td>
             <td class="${!person.childName ? 'error-cell' : ''}">${person.childName}</td>
             <td class="birth-order-cell ${!person.birthOrder || (person.birthOrder !== 2 && person.birthOrder !== 3) ? 'error-cell' : ''}">${person.birthOrder}</td>
-            <td class="${!person.childId || person.childId.length !== 18 || !/^\d+$/.test(person.childId) ? 'error-cell' : ''}">${formatIdNumber(person.childId)}</td>
+            <td class="${!person.childId || person.childId.length !== 18 || !/^\d{17}[\dX]$/.test(person.childId) ? 'error-cell' : ''}">${formatIdNumber(person.childId)}</td>
             <td class="${!person.fatherName ? 'error-cell' : ''}">${person.fatherName}</td>
-            <td class="${!person.fatherId || person.fatherId.length !== 18 || !/^\d+$/.test(person.fatherId) ? 'error-cell' : ''}">${formatIdNumber(person.fatherId)}</td>
+            <td class="${!person.fatherId || person.fatherId.length !== 18 || !/^\d{17}[\dX]$/.test(person.fatherId) ? 'error-cell' : ''}">${formatIdNumber(person.fatherId)}</td>
             <td class="${!person.motherName ? 'error-cell' : ''}">${person.motherName}</td>
-            <td class="${!person.motherId || person.motherId.length !== 18 || !/^\d+$/.test(person.motherId) ? 'error-cell' : ''}">${formatIdNumber(person.motherId)}</td>
+            <td class="${!person.motherId || person.motherId.length !== 18 || !/^\d{17}[\dX]$/.test(person.motherId) ? 'error-cell' : ''}">${formatIdNumber(person.motherId)}</td>
             <td>
                 ${person.isDuplicate ? '<span style="color:red">Excel重复</span>' : 
                 person.isDbDuplicate ? '<span style="color:red">数据库重复</span>' : '正常'}
@@ -495,8 +495,8 @@ function renderPersonPreview() {
                         cell.title = '婴幼儿身份证号码不能为空';
                     } else if (person.childId.length !== 18) {
                         cell.title = `婴幼儿身份证号码长度必须为18位，当前为${person.childId.length}位`;
-                    } else if (!/^\d+$/.test(person.childId)) {
-                        cell.title = '婴幼儿身份证号码必须为纯数字';
+                    } else if (!/^\d{17}[\dX]$/.test(person.childId)) {
+                        cell.title = '婴幼儿身份证号码除最后一位以外必须为纯数字';
                     }
                     break;
                 case 4: // 父亲姓名
@@ -507,8 +507,8 @@ function renderPersonPreview() {
                         cell.title = '父亲身份证号码不能为空';
                     } else if (person.fatherId.length !== 18) {
                         cell.title = `父亲身份证号码长度必须为18位，当前为${person.fatherId.length}位`;
-                    } else if (!/^\d+$/.test(person.fatherId)) {
-                        cell.title = '父亲身份证号码必须为纯数字';
+                    } else if (!/^\d{17}[\dX]$/.test(person.fatherId)) {
+                        cell.title = '父亲身份证号码除最后一位以外必须为纯数字';
                     }
                     break;
                 case 6: // 母亲姓名
@@ -519,8 +519,8 @@ function renderPersonPreview() {
                         cell.title = '母亲身份证号码不能为空';
                     } else if (person.motherId.length !== 18) {
                         cell.title = `母亲身份证号码长度必须为18位，当前为${person.motherId.length}位`;
-                    } else if (!/^\d+$/.test(person.motherId)) {
-                        cell.title = '母亲身份证号码必须为纯数字';
+                    } else if (!/^\d{17}[\dX]$/.test(person.motherId)) {
+                        cell.title = '母亲身份证号码除最后一位以外必须为纯数字';
                     }
                     break;
             }

@@ -396,7 +396,11 @@ function validateBasicData(person, result) {
         result.errors.push('身份证号码不能为空');
     } else if (person.idNumber.length < 18) {
         result.errors.push(`身份证号码长度不能少于18位，当前为${person.idNumber.length}位`);
-    }
+    } 
+    // 如果需要限制除最后一位其他都必须为数字
+    // else if (!/^\d{17}[\dX]$/.test(person.idNumber)) {
+    //     result.errors.push('婴幼儿身份证号码除最后一位以外必须为纯数字') ;
+    //     }
     
     // 家长姓名验证
     if (!person.parentName) result.errors.push('家长姓名不能为空');
