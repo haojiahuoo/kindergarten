@@ -584,48 +584,101 @@ async function statsPrintStatsTable() {
     }
 }
 
-// 准备打印数据 - 重新设计
+// 准备打印数据 - 根据选择的机构获取数据
 async function preparePrintData(quarter) {
-    // 这里使用固定的机构数据
-    const fixedInstitutions = [
-        { id: 9, name: '鸿顺托育中心', contact: '魏菲菲17763511199', type: '', category: '民办', capacity: 60 },
-        { id: 2, name: '昌润莲城幼儿园', contact: '郭娟15263526885', type: '幼儿园托班', category: '民办', capacity: 80 },
-        { id: 14, name: '风貌街实验幼儿园', contact: '庞婷婷13468378654', type: '幼儿园托班', category: '公办', capacity: 60 },
-        { id: 3, name: '博士林托育中心', contact: '葛燕18806358787', type: '幼儿园托班', category: '民办', capacity: 60 },
-        { id: 10, name: '区托育综合服务中心', contact: '阮树录15910192052', type: '托育机构', category: '公办', capacity: 150 },
-        { id: 4, name: '双力幼儿园', contact: '岳福银13396229306', type: '幼儿园托班', category: '民办', capacity: 40 },
-        { id: 13, name: '东关实验幼儿园', contact: '刘颖18365800123', type: '幼儿园托班', category: '公办', capacity: 20 },
-        { id: 8, name: '东方幼稚园', contact: '仙树云18063581839', type: '幼儿园托班', category: '民办', capacity: 60 },
-        { id: 12, name: '爱尔福托育中心', contact: '肖琳15117910864', type: '托育机构', category: '民办', capacity: 60 },
-        { id: 7, name: '交运集团托育中心', contact: '申静静13793080077', type: '托育机构', category: '民办', capacity: 80 },
-        { id: 1, name: '水岸新城幼儿园', contact: '韩越越15563559997', type: '幼儿园托班', category: '民办', capacity: 60 },
-        { id: 11, name: '郑忠童蒙幼儿园', contact: '王文雅18963572018', type: '幼儿园托班', category: '民办', capacity: 60 },
-        { id: 6, name: '交运托育服务有限公司', contact: '张亚娟18663510910', type: '幼儿园托班', category: '民办', capacity: 150 },
-        { id: 5, name: '贝贝家托育中心', contact: '刘伟18063528567', type: '托育机构', category: '民办', capacity: 60 }
-    ];
-
-    console.log('开始准备打印数据，季度:', quarter);
+    const kindergartenSelect = document.getElementById('stats-kindergarten-select');
+    const selectedKindergartenValue = kindergartenSelect.value;
     
-    const institutionsWithData = [];
-    for (const institution of fixedInstitutions) {
-        console.log(`=== 处理机构: ${institution.name} ===`);
+    console.log('选择的机构值:', selectedKindergartenValue);
+    
+    // 如果选择了具体机构，只获取该机构数据
+    if (selectedKindergartenValue && selectedKindergartenValue !== '') {
+        // 获取选中的机构名称
+        const selectedKindergartenName = kindergartenSelect.options[kindergartenSelect.selectedIndex].text;
+        console.log('选择了具体机构:', selectedKindergartenName);
         
-        const institutionData = await getInstitutionMonthlyData(institution.name, quarter);
+        // 只获取选中的机构数据
+        const institutionData = await getInstitutionMonthlyData(selectedKindergartenName, quarter);
+        console.log('获取到的机构数据:', institutionData);
         
-        console.log(`机构 ${institution.name} 最终数据:`, institutionData);
+        // 使用固定数据（暂时）
+        const fixedInstitutionInfo = getFixedInstitutionInfo(selectedKindergartenName);
         
-        institutionsWithData.push({
-            ...institution,
+        return [{
+            id: selectedKindergartenValue,
+            name: selectedKindergartenName,
+            contact: fixedInstitutionInfo.contact,
+            type: fixedInstitutionInfo.type,
+            category: fixedInstitutionInfo.category,
+            capacity: fixedInstitutionInfo.capacity,
             secondChildCounts: institutionData.secondChildCounts,
             thirdChildCounts: institutionData.thirdChildCounts
-        });
-    }
+        }];
+    } 
+    // 如果选择"全部托育机构"，获取所有机构数据
+    else {
+        console.log('选择了全部托育机构，获取所有机构数据');
+        
+        // 这里使用固定的机构数据
+        const fixedInstitutions = [
+            { id: 9, name: '鸿顺托育中心', contact: '魏菲菲17763511199', type: '', category: '民办', capacity: 60 },
+            { id: 2, name: '昌润莲城幼儿园', contact: '郭娟15263526885', type: '幼儿园托班', category: '民办', capacity: 80 },
+            { id: 14, name: '风貌街实验幼儿园', contact: '庞婷婷13468378654', type: '幼儿园托班', category: '公办', capacity: 60 },
+            { id: 3, name: '博士林托育中心', contact: '葛燕18806358787', type: '幼儿园托班', category: '民办', capacity: 60 },
+            { id: 10, name: '区托育综合服务中心', contact: '阮树录15910192052', type: '托育机构', category: '公办', capacity: 150 },
+            { id: 4, name: '双力幼儿园', contact: '岳福银13396229306', type: '幼儿园托班', category: '民办', capacity: 40 },
+            { id: 13, name: '东关实验幼儿园', contact: '刘颖18365800123', type: '幼儿园托班', category: '公办', capacity: 20 },
+            { id: 8, name: '东方幼稚园', contact: '仙树云18063581839', type: '幼儿园托班', category: '民办', capacity: 60 },
+            { id: 12, name: '爱尔福托育中心', contact: '肖琳15117910864', type: '托育机构', category: '民办', capacity: 60 },
+            { id: 7, name: '交运集团托育中心', contact: '申静静13793080077', type: '托育机构', category: '民办', capacity: 80 },
+            { id: 1, name: '水岸新城幼儿园', contact: '韩越越15563559997', type: '幼儿园托班', category: '民办', capacity: 60 },
+            { id: 11, name: '郑忠童蒙幼儿园', contact: '王文雅18963572018', type: '幼儿园托班', category: '民办', capacity: 60 },
+            { id: 6, name: '交运托育服务有限公司', contact: '张亚娟18663510910', type: '幼儿园托班', category: '民办', capacity: 150 },
+            { id: 5, name: '贝贝家托育中心', contact: '刘伟18063528567', type: '托育机构', category: '民办', capacity: 60 }
+        ];
 
-    console.log('=== 所有机构最终数据 ===', institutionsWithData);
-    return institutionsWithData;
+        console.log('开始准备所有机构打印数据，季度:', quarter);
+        
+        const institutionsWithData = [];
+        for (const institution of fixedInstitutions) {
+            console.log(`获取机构 ${institution.name} 的数据...`);
+            
+            const institutionData = await getInstitutionMonthlyData(institution.name, quarter);
+            
+            institutionsWithData.push({
+                ...institution,
+                secondChildCounts: institutionData.secondChildCounts,
+                thirdChildCounts: institutionData.thirdChildCounts
+            });
+        }
+
+        console.log('所有机构最终数据:', institutionsWithData);
+        return institutionsWithData;
+    }
 }
 
-// 获取指定机构的所有孩次月度数据
+// 获取固定机构信息
+function getFixedInstitutionInfo(kindergartenName) {
+    const fixedInstitutions = {
+        '鸿顺托育中心': { contact: '魏菲菲17763511199', type: '', category: '民办', capacity: 60 },
+        '昌润莲城幼儿园': { contact: '郭娟15263526885', type: '幼儿园托班', category: '民办', capacity: 80 },
+        '风貌街实验幼儿园': { contact: '庞婷婷13468378654', type: '幼儿园托班', category: '公办', capacity: 60 },
+        '博士林托育中心': { contact: '葛燕18806358787', type: '幼儿园托班', category: '民办', capacity: 60 },
+        '区托育综合服务中心': { contact: '阮树录15910192052', type: '托育机构', category: '公办', capacity: 150 },
+        '双力幼儿园': { contact: '岳福银13396229306', type: '幼儿园托班', category: '民办', capacity: 40 },
+        '东关实验幼儿园': { contact: '刘颖18365800123', type: '幼儿园托班', category: '公办', capacity: 20 },
+        '东方幼稚园': { contact: '仙树云18063581839', type: '幼儿园托班', category: '民办', capacity: 60 },
+        '爱尔福托育中心': { contact: '肖琳15117910864', type: '托育机构', category: '民办', capacity: 60 },
+        '交运集团托育中心': { contact: '申静静13793080077', type: '托育机构', category: '民办', capacity: 80 },
+        '水岸新城幼儿园': { contact: '韩越越15563559997', type: '幼儿园托班', category: '民办', capacity: 60 },
+        '郑忠童蒙幼儿园': { contact: '王文雅18963572018', type: '幼儿园托班', category: '民办', capacity: 60 },
+        '交运托育服务有限公司': { contact: '张亚娟18663510910', type: '幼儿园托班', category: '民办', capacity: 150 },
+        '贝贝家托育中心': { contact: '刘伟18063528567', type: '托育机构', category: '民办', capacity: 60 }
+    };
+    
+    return fixedInstitutions[kindergartenName] || { contact: '暂无联系方式', type: '', category: '', capacity: 0 };
+}
+// 获取指定机构的所有孩次月度数据 - 这是正确的函数
 async function getInstitutionMonthlyData(kindergartenName, quarter) {
     try {
         const requestData = {
@@ -675,85 +728,6 @@ async function getInstitutionMonthlyData(kindergartenName, quarter) {
     }
 }
 
-// 删除原来的 getChildCountsByMonth 函数，因为不再需要
-// 获取指定机构、孩次和季度的各月份人数
-async function getChildCountsByMonth(kindergartenName, birthOrder, quarter) {
-    try {
-        // 构建请求参数 - 注意：后端只需要 kindergarten 和 quarter
-        const requestData = {
-            kindergarten: kindergartenName,
-            quarter: quarter
-        };
-        
-        console.log('发送月度统计请求:', requestData);
-        
-        // 调用后端API获取真实数据
-        const response = await fetch('http://localhost/kindergarten/getMonthlyStats.php', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(requestData)
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log('API返回完整数据:', data);
-        
-        if (data.success) {
-            // 根据后端返回的字段名获取数据
-            let monthlyCounts;
-            
-            if (birthOrder === '2' && data.secondChildCounts) {
-                monthlyCounts = data.secondChildCounts;
-                console.log(`获取到二孩数据:`, monthlyCounts);
-            } else if (birthOrder === '3' && data.thirdChildCounts) {
-                monthlyCounts = data.thirdChildCounts;
-                console.log(`获取到三孩数据:`, monthlyCounts);
-            } else {
-                console.warn(`未找到第${birthOrder}孩数据字段，使用默认值`);
-                monthlyCounts = [0, 0, 0];
-            }
-            
-            return monthlyCounts;
-        } else {
-            console.error('API返回错误:', data.message);
-            return [0, 0, 0];
-        }
-        
-    } catch (error) {
-        console.error('获取月度人数失败:', error);
-        // 失败时返回默认值
-        return [0, 0, 0];
-    }
-}
-
-// 备用模拟数据函数
-function getMockData(kindergartenName, birthOrder) {
-    const mockData = {
-        '鸿顺托育中心': { 2: [0, 0, 0], 3: [0, 0, 0] },
-        '昌润莲城幼儿园': { 2: [1, 1, 3], 3: [0, 0, 0] },
-        '风貌街实验幼儿园': { 2: [1, 1, 1], 3: [0, 0, 0] },
-        '博士林托育中心': { 2: [2, 2, 2], 3: [0, 0, 0] },
-        '区托育综合服务中心': { 2: [2, 2, 5], 3: [1, 1, 1] },
-        '双力幼儿园': { 2: [7, 7, 7], 3: [1, 1, 1] },
-        '东关实验幼儿园': { 2: [0, 0, 0], 3: [0, 0, 0] },
-        '东方幼稚园': { 2: [2, 2, 3], 3: [1, 1, 2] },
-        '爱尔福托育中心': { 2: [1, 1, 2], 3: [0, 1, 2] },
-        '交运集团托育中心': { 2: [4, 4, 4], 3: [1, 1, 1] },
-        '水岸新城幼儿园': { 2: [6, 3, 3], 3: [3, 3, 3] },
-        '郑忠童蒙幼儿园': { 2: [0, 0, 0], 3: [0, 0, 0] },
-        '交运托育服务有限公司': { 2: [7, 5, 4], 3: [3, 3, 3] },
-        '贝贝家托育中心': { 2: [14, 14, 12], 3: [1, 1, 1] }
-    };
-    
-    const result = mockData[kindergartenName]?.[birthOrder] || [0, 0, 0];
-    console.log(`使用模拟数据: 机构 ${kindergartenName} 孩次 ${birthOrder}`, result);
-    return result;
-}
 
 // 生成打印表格
 async function generatePrintTable(quarter) {
@@ -862,8 +836,11 @@ async function generatePrintTable(quarter) {
     }
 }
 
-// 生成表格行 - 添加错误处理
+// 生成表格行
 async function generateTableRows(data, quarter) {
+    console.log('生成表格行，数据长度:', data.length);
+    console.log('表格行数据:', data);
+    
     if (!data || data.length === 0) {
         return '<tr><td colspan="16" style="text-align: center;">暂无数据</td></tr>';
     }
@@ -872,15 +849,16 @@ async function generateTableRows(data, quarter) {
     
     for (let i = 0; i < data.length; i++) {
         const institution = data[i];
+        console.log(`处理第${i+1}个机构:`, institution.name);
+        
         // 添加默认值处理
         const secondChildCounts = institution.secondChildCounts || [0, 0, 0];
         const thirdChildCounts = institution.thirdChildCounts || [0, 0, 0];
         
-        // 计算二孩补贴金额（三个月人数*300，再除以10000）- 添加错误处理
+        // 计算补贴金额
         const secondChildTotal = secondChildCounts.reduce((sum, count) => sum + (count || 0), 0);
         const secondChildSubsidy = (secondChildTotal * 300) / 10000;
         
-        // 计算三孩补贴金额（三个月人数*400，再除以10000）- 添加错误处理
         const thirdChildTotal = thirdChildCounts.reduce((sum, count) => sum + (count || 0), 0);
         const thirdChildSubsidy = (thirdChildTotal * 400) / 10000;
         
@@ -906,6 +884,7 @@ async function generateTableRows(data, quarter) {
         `;
     }
     
+    console.log('生成的表格行数量:', data.length);
     return rows;
 }
 
