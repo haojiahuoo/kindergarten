@@ -729,10 +729,14 @@ function addSinglePerson() {
 }
 
 // 辅助函数
+// function formatIdNumber(id) {
+//     if (!id) return '';
+//     if (id.length !== 18) return id;
+//     return id.substring(0, 6) + '****' + id.substring(14);
+//     return id
+// }
 function formatIdNumber(id) {
-    if (!id) return '';
-    if (id.length !== 18) return id;
-    return id.substring(0, 6) + '****' + id.substring(14);
+    return id || '';
 }
 
 function formatFileSize(bytes) {

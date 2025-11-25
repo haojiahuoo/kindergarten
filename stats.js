@@ -341,9 +341,12 @@ function formatDate(dateString) {
     return String(dateString || '');
 }
 
+// function formatIdNumber(id) {
+//     if (!id || id.length !== 18) return id || '';
+//     return id.substring(0, 6) + '****' + id.substring(14);
+// }
 function formatIdNumber(id) {
-    if (!id || id.length !== 18) return id || '';
-    return id.substring(0, 6) + '****' + id.substring(14);
+    return id || '';
 }
 
 function getStatusBadge(status) {
@@ -435,7 +438,7 @@ async function statsPrintStatsTable() {
         <!DOCTYPE html>
         <html>
         <head>
-            <title>普惠托育补贴季度计算表</title>
+            <title>东昌府区普惠托育补贴季度统计表</title>
             <style>
                 body { 
                     font-family: "SimSun", "宋体", serif; 
@@ -621,16 +624,16 @@ async function preparePrintData(quarter) {
         
         // 这里使用固定的机构数据
         const fixedInstitutions = [
-            { id: 9, name: '鸿顺托育中心', contact: '魏菲菲17763511199', type: '', category: '民办', capacity: 60 },
+            { id: 9, name: '鸿顺幼儿园', contact: '魏菲菲17763511199', type: '幼儿园托班', category: '民办', capacity: 60 },
             { id: 2, name: '昌润莲城幼儿园', contact: '郭娟15263526885', type: '幼儿园托班', category: '民办', capacity: 80 },
             { id: 14, name: '风貌街实验幼儿园', contact: '庞婷婷13468378654', type: '幼儿园托班', category: '公办', capacity: 60 },
-            { id: 3, name: '博士林托育中心', contact: '葛燕18806358787', type: '幼儿园托班', category: '民办', capacity: 60 },
+            { id: 3, name: '博士林幼儿园', contact: '葛燕18806358787', type: '幼儿园托班', category: '民办', capacity: 60 },
             { id: 10, name: '区托育综合服务中心', contact: '阮树录15910192052', type: '托育机构', category: '公办', capacity: 150 },
             { id: 4, name: '双力幼儿园', contact: '岳福银13396229306', type: '幼儿园托班', category: '民办', capacity: 40 },
             { id: 13, name: '东关实验幼儿园', contact: '刘颖18365800123', type: '幼儿园托班', category: '公办', capacity: 20 },
             { id: 8, name: '东方幼稚园', contact: '仙树云18063581839', type: '幼儿园托班', category: '民办', capacity: 60 },
             { id: 12, name: '爱尔福托育中心', contact: '肖琳15117910864', type: '托育机构', category: '民办', capacity: 60 },
-            { id: 7, name: '交运集团托育中心', contact: '申静静13793080077', type: '托育机构', category: '民办', capacity: 80 },
+            { id: 7, name: '交运小蜗牛', contact: '申静静13793080077', type: '托育机构', category: '民办', capacity: 80 },
             { id: 1, name: '水岸新城幼儿园', contact: '韩越越15563559997', type: '幼儿园托班', category: '民办', capacity: 60 },
             { id: 11, name: '郑忠童蒙幼儿园', contact: '王文雅18963572018', type: '幼儿园托班', category: '民办', capacity: 60 },
             { id: 6, name: '交运托育服务有限公司', contact: '张亚娟18663510910', type: '幼儿园托班', category: '民办', capacity: 150 },
@@ -660,16 +663,16 @@ async function preparePrintData(quarter) {
 // 获取固定机构信息
 function getFixedInstitutionInfo(kindergartenName) {
     const fixedInstitutions = {
-        '鸿顺托育中心': { contact: '魏菲菲17763511199', type: '', category: '民办', capacity: 60 },
+        '鸿顺鸿顺幼儿园': { contact: '魏菲菲17763511199', type: '幼儿园托班', category: '民办', capacity: 60 },
         '昌润莲城幼儿园': { contact: '郭娟15263526885', type: '幼儿园托班', category: '民办', capacity: 80 },
         '风貌街实验幼儿园': { contact: '庞婷婷13468378654', type: '幼儿园托班', category: '公办', capacity: 60 },
-        '博士林托育中心': { contact: '葛燕18806358787', type: '幼儿园托班', category: '民办', capacity: 60 },
+        '博士林幼儿园': { contact: '葛燕18806358787', type: '幼儿园托班', category: '民办', capacity: 60 },
         '区托育综合服务中心': { contact: '阮树录15910192052', type: '托育机构', category: '公办', capacity: 150 },
         '双力幼儿园': { contact: '岳福银13396229306', type: '幼儿园托班', category: '民办', capacity: 40 },
         '东关实验幼儿园': { contact: '刘颖18365800123', type: '幼儿园托班', category: '公办', capacity: 20 },
         '东方幼稚园': { contact: '仙树云18063581839', type: '幼儿园托班', category: '民办', capacity: 60 },
         '爱尔福托育中心': { contact: '肖琳15117910864', type: '托育机构', category: '民办', capacity: 60 },
-        '交运集团托育中心': { contact: '申静静13793080077', type: '托育机构', category: '民办', capacity: 80 },
+        '交运小蜗牛': { contact: '申静静13793080077', type: '托育机构', category: '民办', capacity: 80 },
         '水岸新城幼儿园': { contact: '韩越越15563559997', type: '幼儿园托班', category: '民办', capacity: 60 },
         '郑忠童蒙幼儿园': { contact: '王文雅18963572018', type: '幼儿园托班', category: '民办', capacity: 60 },
         '交运托育服务有限公司': { contact: '张亚娟18663510910', type: '幼儿园托班', category: '民办', capacity: 150 },
