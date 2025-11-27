@@ -633,10 +633,10 @@ async function preparePrintData(quarter) {
             { id: 13, name: '东关实验幼儿园', contact: '刘颖18365800123', type: '幼儿园托班', category: '公办', capacity: 20 },
             { id: 8, name: '东方幼稚园', contact: '仙树云18063581839', type: '幼儿园托班', category: '民办', capacity: 60 },
             { id: 12, name: '爱尔福托育中心', contact: '肖琳15117910864', type: '托育机构', category: '民办', capacity: 60 },
-            { id: 7, name: '交运小蜗牛', contact: '申静静13793080077', type: '托育机构', category: '民办', capacity: 80 },
+            { id: 7, name: '交运托育中心', contact: '申静静13793080077', type: '托育机构', category: '民办', capacity: 80 },
             { id: 1, name: '水岸新城幼儿园', contact: '韩越越15563559997', type: '幼儿园托班', category: '民办', capacity: 60 },
             { id: 11, name: '郑忠童蒙幼儿园', contact: '王文雅18963572018', type: '幼儿园托班', category: '民办', capacity: 60 },
-            { id: 6, name: '交运托育服务有限公司', contact: '张亚娟18663510910', type: '幼儿园托班', category: '民办', capacity: 150 },
+            { id: 6, name: '交运幼儿园', contact: '张亚娟18663510910', type: '幼儿园托班', category: '民办', capacity: 150 },
             { id: 5, name: '贝贝家托育中心', contact: '刘伟18063528567', type: '托育机构', category: '民办', capacity: 60 }
         ];
 
@@ -672,10 +672,10 @@ function getFixedInstitutionInfo(kindergartenName) {
         '东关实验幼儿园': { contact: '刘颖18365800123', type: '幼儿园托班', category: '公办', capacity: 20 },
         '东方幼稚园': { contact: '仙树云18063581839', type: '幼儿园托班', category: '民办', capacity: 60 },
         '爱尔福托育中心': { contact: '肖琳15117910864', type: '托育机构', category: '民办', capacity: 60 },
-        '交运小蜗牛': { contact: '申静静13793080077', type: '托育机构', category: '民办', capacity: 80 },
+        '交运托育中心': { contact: '申静静13793080077', type: '托育机构', category: '民办', capacity: 80 },
         '水岸新城幼儿园': { contact: '韩越越15563559997', type: '幼儿园托班', category: '民办', capacity: 60 },
         '郑忠童蒙幼儿园': { contact: '王文雅18963572018', type: '幼儿园托班', category: '民办', capacity: 60 },
-        '交运托育服务有限公司': { contact: '张亚娟18663510910', type: '幼儿园托班', category: '民办', capacity: 150 },
+        '交运幼儿园': { contact: '张亚娟18663510910', type: '幼儿园托班', category: '民办', capacity: 150 },
         '贝贝家托育中心': { contact: '刘伟18063528567', type: '托育机构', category: '民办', capacity: 60 }
     };
     

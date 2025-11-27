@@ -899,6 +899,8 @@ function queryPersonData() {
         .then(data => {
             console.log("完整查询结果:", data);
             if (data.success && data.persons && data.persons.length > 0) {
+                // 保存查询结果用于打印
+                window.lastQueryResults = data.persons;
                 // 显示查询结果在预览区域
                 displayQueryResults(data.persons);
                 showPersonMessage('error-message-person', `查询到 ${data.persons.length} 条人员信息`);
@@ -1328,3 +1330,312 @@ function clearQueryForm() {
     // 使用现有的showPersonMessage显示成功消息
     showPersonMessage('error-message-person', '查询条件已清空');
 }
+
+// 编辑人员信息
+function editPerson(childId) {
+    // 从查询结果中找到要编辑的人员
+    const personToEdit = window.lastQueryResults.find(person => person.childId === childId);
+    
+    if (!personToEdit) {
+        showPersonMessage('error-message-person', '未找到要编辑的人员信息');
+        return;
+    }
+    
+    // 创建编辑模态框
+    createEditModal(personToEdit);
+}
+
+// 创建编辑模态框 - 修改后的版本
+function createEditModal(person) {
+    // 移除已存在的模态框
+    const existingModal = document.getElementById('edit-person-modal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // 创建模态框HTML
+    const modalHTML = `
+        <div id="edit-person-modal" class="modal" style="display:block; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.5);">
+            <div class="modal-content" style="background-color:#fefefe; margin:5% auto; padding:20px; border:1px solid #888; width:80%; max-width:600px; border-radius:8px;">
+                <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ddd; padding-bottom:10px; margin-bottom:20px;">
+                    <h2 style="margin:0; color:#333;">编辑人员信息</h2>
+                    <span class="close" onclick="closeEditModal()" style="font-size:28px; font-weight:bold; cursor:pointer; color:#aaa;">&times;</span>
+                </div>
+                
+                <div class="modal-body">
+                    <form id="edit-person-form">
+                        <div class="form-group" style="margin-bottom:15px;">
+                            <label style="display:block; margin-bottom:5px; font-weight:bold;">孩子姓名:</label>
+                            <input type="text" id="edit-child-name" value="${person.childName || ''}" 
+                                   style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom:15px;">
+                            <label style="display:block; margin-bottom:5px; font-weight:bold;">孩次:</label>
+                            <select id="edit-birth-order" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                                <option value="">请选择</option>
+                                <option value="2" ${person.birthOrder == 2 ? 'selected' : ''}>2</option>
+                                <option value="3" ${person.birthOrder == 3 ? 'selected' : ''}>3</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom:15px;">
+                            <label style="display:block; margin-bottom:5px; font-weight:bold;">孩子身份证号:</label>
+                            <input type="text" id="edit-child-id" value="${person.childId || ''}" 
+                                   style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                            <small style="color:#666;">修改身份证号将同步更新所有相关记录</small>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom:15px;">
+                            <label style="display:block; margin-bottom:5px; font-weight:bold;">父亲姓名:</label>
+                            <input type="text" id="edit-father-name" value="${person.fatherName || ''}" 
+                                   style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom:15px;">
+                            <label style="display:block; margin-bottom:5px; font-weight:bold;">父亲身份证号:</label>
+                            <input type="text" id="edit-father-id" value="${person.fatherId || ''}" 
+                                   style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom:15px;">
+                            <label style="display:block; margin-bottom:5px; font-weight:bold;">母亲姓名:</label>
+                            <input type="text" id="edit-mother-name" value="${person.motherName || ''}" 
+                                   style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom:20px;">
+                            <label style="display:block; margin-bottom:5px; font-weight:bold;">母亲身份证号:</label>
+                            <input type="text" id="edit-mother-id" value="${person.motherId || ''}" 
+                                   style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                        </div>
+                        
+                        <div id="edit-error-message" style="color:red; margin-bottom:15px; display:none;"></div>
+                        
+                        <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #ddd; padding-top:15px;">
+                            <button type="button" onclick="closeEditModal()" 
+                                    style="padding:8px 16px; background:#6c757d; color:white; border:none; border-radius:4px; cursor:pointer;">
+                                取消
+                            </button>
+                            <button type="button" onclick="submitEditPerson('${person.childId}')" 
+                                    style="padding:8px 16px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer;">
+                                保存修改
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // 添加到页面
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+// 关闭编辑模态框
+function closeEditModal() {
+    const modal = document.getElementById('edit-person-modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// 提交编辑信息 - 添加更好的错误处理
+function submitEditPerson(originalChildId) {
+    // 获取表单数据
+    const childName = document.getElementById('edit-child-name').value.trim();
+    const birthOrder = document.getElementById('edit-birth-order').value;
+    const childId = document.getElementById('edit-child-id').value.trim();
+    const fatherName = document.getElementById('edit-father-name').value.trim();
+    const fatherId = document.getElementById('edit-father-id').value.trim();
+    const motherName = document.getElementById('edit-mother-name').value.trim();
+    const motherId = document.getElementById('edit-mother-id').value.trim();
+    
+    // 验证必填字段
+    const errorMessage = document.getElementById('edit-error-message');
+    
+    if (!childName) {
+        showEditMessage('孩子姓名不能为空');
+        return;
+    }
+    
+    if (!birthOrder) {
+        showEditMessage('请选择孩次');
+        return;
+    }
+    
+    if (!childId) {
+        showEditMessage('孩子身份证号不能为空');
+        return;
+    }
+    
+    if (!fatherName) {
+        showEditMessage('父亲姓名不能为空');
+        return;
+    }
+    
+    if (!fatherId) {
+        showEditMessage('父亲身份证号不能为空');
+        return;
+    }
+    
+    if (!motherName) {
+        showEditMessage('母亲姓名不能为空');
+        return;
+    }
+    
+    if (!motherId) {
+        showEditMessage('母亲身份证号不能为空');
+        return;
+    }
+    
+    // 验证身份证格式
+    if (childId && (childId.length !== 18 || !/^\d{17}[\dX]$/.test(childId))) {
+        showEditMessage('孩子身份证号格式不正确');
+        return;
+    }
+    
+    if (fatherId && (fatherId.length !== 18 || !/^\d{17}[\dX]$/.test(fatherId))) {
+        showEditMessage('父亲身份证号格式不正确');
+        return;
+    }
+    
+    if (motherId && (motherId.length !== 18 || !/^\d{17}[\dX]$/.test(motherId))) {
+        showEditMessage('母亲身份证号格式不正确');
+        return;
+    }
+    
+    // 构建更新数据
+    const updateData = {
+        originalChildId: originalChildId,
+        childName: childName,
+        birthOrder: parseInt(birthOrder),
+        childId: childId,
+        fatherName: fatherName,
+        fatherId: fatherId,
+        motherName: motherName,
+        motherId: motherId
+    };
+    
+    console.log('提交更新数据:', updateData);
+    
+    // 显示加载状态
+    showPersonStatus('正在更新人员信息...', 30);
+    
+    // 发送更新请求
+    fetch('http://localhost/kindergarten/updatePerson.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+    })
+    .then(async res => {
+        // 先获取响应文本
+        const responseText = await res.text();
+        console.log('原始响应:', responseText);
+        
+        try {
+            // 尝试解析为JSON
+            const data = JSON.parse(responseText);
+            return data;
+        } catch (parseError) {
+            console.error('JSON解析错误:', parseError);
+            throw new Error('服务器返回了无效的JSON格式: ' + responseText.substring(0, 100));
+        }
+    })
+    .then(data => {
+        console.log("更新响应:", data);
+        
+        if (data.success) {
+            showPersonStatus('更新成功', 100);
+            showPersonMessage('error-message-person', '人员信息更新成功', 'success');
+            
+            // 关闭模态框
+            closeEditModal();
+            
+            // 只更新修改的那条记录，不重新查询
+            updateSingleRecordInView(data.updatedRecord || {
+                childId: childId, // 新的身份证号
+                childName: childName,
+                birthOrder: birthOrder,
+                fatherName: fatherName,
+                fatherId: fatherId,
+                motherName: motherName,
+                motherId: motherId
+            }, originalChildId);
+            
+        } else {
+            showPersonStatus('更新失败', 0);
+            showEditMessage(data.message || '更新失败');
+        }
+    })
+    .catch(error => {
+        console.error('更新失败:', error);
+        showPersonStatus('更新失败', 0);
+        showEditMessage('更新失败: ' + error.message);
+    })
+    .finally(() => {
+        setTimeout(() => {
+            hidePersonStatus();
+        }, 2000);
+    });
+}
+
+// 更新单条记录在视图中的显示
+function updateSingleRecordInView(updatedRecord, originalChildId) {
+    const tbody = document.getElementById('preview-body-person');
+    const rows = tbody.getElementsByTagName('tr');
+    
+    for (let row of rows) {
+        const childIdCell = row.cells[3]; // 身份证号在第4列
+        if (childIdCell && childIdCell.textContent === originalChildId) {
+            // 更新这一行的数据
+            row.cells[1].textContent = updatedRecord.childName || ''; // 孩子姓名
+            row.cells[2].textContent = updatedRecord.birthOrder || ''; // 孩次
+            row.cells[3].textContent = updatedRecord.childId || ''; // 孩子身份证
+            row.cells[4].textContent = updatedRecord.fatherName || ''; // 父亲姓名
+            row.cells[5].textContent = formatIdNumber(updatedRecord.fatherId); // 父亲身份证
+            row.cells[6].textContent = updatedRecord.motherName || ''; // 母亲姓名
+            row.cells[7].textContent = formatIdNumber(updatedRecord.motherId); // 母亲身份证
+            
+            // 更新编辑按钮的onclick事件，使用新的身份证号
+            const editButton = row.cells[9].querySelector('.btn-info');
+            if (editButton) {
+                editButton.setAttribute('onclick', `editPerson('${updatedRecord.childId}')`);
+            }
+            break;
+        }
+    }
+    
+    // 同时更新 lastQueryResults 中的数据
+    if (window.lastQueryResults) {
+        const recordIndex = window.lastQueryResults.findIndex(p => p.childId === originalChildId);
+        if (recordIndex !== -1) {
+            window.lastQueryResults[recordIndex] = {
+                ...window.lastQueryResults[recordIndex],
+                ...updatedRecord
+            };
+        }
+    }
+}
+
+// 显示编辑错误消息
+function showEditMessage(message) {
+    const errorElement = document.getElementById('edit-error-message');
+    if (errorElement) {
+        errorElement.textContent = message;
+        errorElement.style.display = 'block';
+        
+        // 3秒后自动隐藏
+        setTimeout(() => {
+            errorElement.style.display = 'none';
+        }, 3000);
+    }
+}
+
+// 点击模态框外部关闭
+document.addEventListener('click', function(event) {
+    const modal = document.getElementById('edit-person-modal');
+    if (modal && event.target === modal) {
+        closeEditModal();
+    }
+});
