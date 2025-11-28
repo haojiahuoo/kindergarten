@@ -635,6 +635,10 @@ function importPersonData() {
                     showPersonStatus('导入成功', 100);
                     showPersonMessage('success-message', 
                         `导入完成！成功: ${result.stats.success}`);
+                         // 只有在成功时才执行清空操作
+                        if (onSuccess) {
+                            onSuccess();
+                    }
                 } else {
                     showPersonStatus('导入失败', 0);
                     showPersonMessage('error-message-person', '导入失败: ' + result.message);
@@ -667,7 +671,7 @@ function updatePersonImportButton() {
 // 单独添加人员功能
 function addSinglePerson() {
     const childName = document.getElementById('child-name').value.trim();
-    const birthOrder = document.getElementById('birth-order').value;
+    const birthOrder = parseInt(document.getElementById('birth-order').value); // 转换为数字
     const childId = document.getElementById('child-id').value.trim();
     const fatherName = document.getElementById('father-name').value.trim();
     const fatherId = document.getElementById('father-id').value.trim();
@@ -713,9 +717,12 @@ function addSinglePerson() {
         isDbDuplicate: false
     };
     
-    personExcelData.push(newPerson);
+    personExcelData.push(newPerson)
     renderPersonPreview();
-    
+    showAddMessage('add-success-message', '人员添加成功！');
+    updatePersonImportButton();
+}
+function onSuccess(){
     document.getElementById('child-name').value = '';
     document.getElementById('birth-order').value = '';
     document.getElementById('child-id').value = '';
@@ -723,11 +730,7 @@ function addSinglePerson() {
     document.getElementById('father-id').value = '';
     document.getElementById('mother-name').value = '';
     document.getElementById('mother-id').value = '';
-    
-    showAddMessage('add-success-message', '人员添加成功！');
-    updatePersonImportButton();
 }
-
 // 辅助函数
 // function formatIdNumber(id) {
 //     if (!id) return '';
@@ -845,9 +848,11 @@ function clearPersonPreview() {
 
 // 综合查询人员函数
 function queryPersonData() {
-    clearQueryResults()
+    clearQueryResults();
+    
     const childName = document.getElementById('child-name').value.trim();
-    const birthOrder = document.getElementById('birth-order').value;
+    const birthOrderValue = document.getElementById('birth-order').value;
+    const birthOrder = birthOrderValue ? parseInt(birthOrderValue) : null;
     const childId = document.getElementById('child-id').value.trim();
     const fatherName = document.getElementById('father-name').value.trim();
     const fatherId = document.getElementById('father-id').value.trim();
@@ -860,7 +865,7 @@ function queryPersonData() {
     const isNewKindergarten = selectedKindergartenId === 'new';
     
     // 判断是否有查询条件
-    const hasQueryConditions = childName || childId || fatherName || fatherId || motherName || motherId || birthOrder;
+    const hasQueryConditions = childName || childId || fatherName || fatherId || motherName || motherId || birthOrderValue;
     const hasKindergartenSelected = selectedKindergartenId && !isNewKindergarten;
     
     console.log('查询条件详情:', {
@@ -875,53 +880,7 @@ function queryPersonData() {
         hasKindergartenSelected
     });
     
-    // 如果没有查询条件但选择了幼儿园，就显示该幼儿园全部人员
-    if (!hasQueryConditions && hasKindergartenSelected) {
-        // 构建只包含幼儿园的查询参数
-        const queryParams = {
-            kindergarten: selectedKindergartenId
-        };
-        
-        console.log('查询全部人员参数:', queryParams);
-        
-        showPersonStatus('正在查询幼儿园全部人员...', 30);
-        
-        fetch('http://localhost/kindergarten/queryPerson.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(queryParams)
-        })
-        .then(res => {
-            console.log('响应状态:', res.status);
-            if (!res.ok) throw new Error("HTTP 状态码: " + res.status);
-            return res.json();
-        })
-        .then(data => {
-            console.log("完整查询结果:", data);
-            if (data.success && data.persons && data.persons.length > 0) {
-                // 保存查询结果用于打印
-                window.lastQueryResults = data.persons;
-                // 显示查询结果在预览区域
-                displayQueryResults(data.persons);
-                showPersonMessage('error-message-person', `查询到 ${data.persons.length} 条人员信息`);
-            } else {
-                // 在预览区域显示"未找到数据"
-                displayNoResults();
-                showPersonMessage('error-message-person', data.message || '该幼儿园暂无人员信息');
-            }
-        })
-        .catch(error => {
-            console.error('查询失败:', error);
-            showPersonMessage('error-message-person', '查询失败: ' + error.message);
-        })
-        .finally(() => {
-            hidePersonStatus();
-        });
-        return;
-    }
-    
-    // 如果有查询条件，按原有逻辑执行
-    // 至少需要一个查询条件或选择了幼儿园
+    // 验证：至少需要一个查询条件或选择了幼儿园
     if (!hasQueryConditions && !hasKindergartenSelected) {
         showAddMessage('add-error-message', '请至少输入一个查询条件或选择托育机构');
         return;
@@ -929,25 +888,43 @@ function queryPersonData() {
     
     // 构建查询参数
     const queryParams = {};
-    if (childName) queryParams.childName = childName;
-    if (birthOrder) queryParams.birthOrder = parseInt(birthOrder);
-    if (childId) queryParams.childId = childId;
-    if (fatherName) queryParams.fatherName = fatherName;
-    if (fatherId) queryParams.fatherId = fatherId;
-    if (motherName) queryParams.motherName = motherName;
-    if (motherId) queryParams.motherId = motherId;
     
-    // 添加幼儿园查询条件
-    if (hasKindergartenSelected) {
-        queryParams.kindergarten = selectedKindergartenId; // 使用ID查询
-    } else if (selectedKindergarten) {
-        queryParams.kindergarten = selectedKindergarten; // 使用名称查询
+    // 情况1：没有查询条件但选择了幼儿园，就查询该幼儿园全部人员
+    if (!hasQueryConditions && hasKindergartenSelected) {
+        queryParams.kindergarten = selectedKindergartenId;
+        console.log('查询幼儿园全部人员参数:', queryParams);
+        showPersonStatus('正在查询幼儿园全部人员...', 30);
+    } 
+    // 情况2：没有选择幼儿园但有查询条件，就查询全部人员中符合条件的
+    else if (!hasKindergartenSelected && hasQueryConditions) {
+        if (childName) queryParams.childName = childName;
+        if (birthOrder) queryParams.birthOrder = birthOrder;
+        if (childId) queryParams.childId = childId;
+        if (fatherName) queryParams.fatherName = fatherName;
+        if (fatherId) queryParams.fatherId = fatherId;
+        if (motherName) queryParams.motherName = motherName;
+        if (motherId) queryParams.motherId = motherId;
+        
+        console.log('条件查询全部人员参数:', queryParams);
+        showPersonStatus('正在按条件查询全部人员...', 30);
+    }
+    // 情况3：既有幼儿园选择又有查询条件，就查询该幼儿园中符合条件的
+    else if (hasKindergartenSelected && hasQueryConditions) {
+        if (childName) queryParams.childName = childName;
+        if (birthOrder) queryParams.birthOrder = birthOrder;
+        if (childId) queryParams.childId = childId;
+        if (fatherName) queryParams.fatherName = fatherName;
+        if (fatherId) queryParams.fatherId = fatherId;
+        if (motherName) queryParams.motherName = motherName;
+        if (motherId) queryParams.motherId = motherId;
+        
+        queryParams.kindergarten = selectedKindergartenId;
+        
+        console.log('查询幼儿园中符合条件的参数:', queryParams);
+        showPersonStatus('正在查询幼儿园中符合条件的人员...', 30);
     }
     
-    console.log('查询参数:', queryParams);
-    
-    showPersonStatus('正在查询...', 30);
-    
+    // 统一的查询执行逻辑
     fetch('http://localhost/kindergarten/queryPerson.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -960,19 +937,7 @@ function queryPersonData() {
     })
     .then(data => {
         console.log("完整查询结果:", data);
-        if (data.success && data.persons && data.persons.length > 0) {
-            // 保存查询结果用于打印
-            window.lastQueryResults = data.persons;
-            // 显示查询结果在预览区域
-            displayQueryResults(data.persons);
-            showPersonMessage('error-message-person', data.message);
-        } else {
-            // 清空之前的查询结果
-            window.lastQueryResults = [];
-            // 在预览区域显示"未找到数据"
-            displayNoResults();
-            showPersonMessage('error-message-person', data.message || '未找到符合条件的人员信息');
-        }
+        handleQueryResponse(data);
     })
     .catch(error => {
         console.error('查询失败:', error);
@@ -981,6 +946,23 @@ function queryPersonData() {
     .finally(() => {
         hidePersonStatus();
     });
+}
+
+// 处理查询响应的统一函数
+function handleQueryResponse(data) {
+    if (data.success && data.persons && data.persons.length > 0) {
+        // 保存查询结果用于打印
+        window.lastQueryResults = data.persons;
+        // 显示查询结果在预览区域
+        displayQueryResults(data.persons);
+        showPersonMessage('error-message-person', data.message || `查询到 ${data.persons.length} 条人员信息`);
+    } else {
+        // 清空之前的查询结果
+        window.lastQueryResults = [];
+        // 在预览区域显示"未找到数据"
+        displayNoResults();
+        showPersonMessage('error-message-person', data.message || '未找到符合条件的人员信息');
+    }
 }
 // 显示查询结果
 function displayQueryResults(persons) {

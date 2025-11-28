@@ -808,8 +808,35 @@
                 <h2><i class="fas fa-file-upload"></i> 上传Excel文件</h2>
                 <div class="upload-section">
                   <div class="upload-area" id="drop-area-person">
-                    <div class="upload-icon">
-                      <i class="fas fa-file-excel"></i>
+                    <div class="file-display-area">
+                      <div class="upload-icon" id="upload-icon-person">
+                        <i class="fas fa-file-excel"></i>
+                      </div>
+                      <div
+                        class="file-name-display"
+                        id="file-name-display-person"
+                        style="display: none"
+                      >
+                        <i
+                          class="fas fa-file-excel"
+                          style="color: #28a745; margin-right: 8px"
+                        ></i>
+                        <span id="display-file-name-person"></span>
+                        <button
+                          type="button"
+                          class="btn-remove-file"
+                          onclick="removeSelectedFile()"
+                          style="
+                            margin-left: 10px;
+                            background: none;
+                            border: none;
+                            color: #dc3545;
+                            cursor: pointer;
+                          "
+                        >
+                          <i class="fas fa-times"></i>
+                        </button>
+                      </div>
                     </div>
                     <p><strong>点击或拖放Excel文件到此处</strong></p>
                     <p style="font-size: 12px; color: #666; margin-top: 10px">
