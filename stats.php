@@ -66,6 +66,15 @@ if (!empty($input['birthOrder'])) {
     $monthlyParams[':monthly_birth_order'] = $input['birthOrder'];
 }
 
+// ========== 新增年度筛选 ==========
+$selectedYear = null;
+if (!empty($input['annual'])) {
+    $selectedYear = $input['annual'];
+    // 对 monthly_data 表添加年度筛选
+    $monthlyConditions[] = "md.`year_month` LIKE :year_pattern";
+    $monthlyParams[':year_pattern'] = $selectedYear . '-%';
+}
+
 // 时间范围筛选（主要针对 monthly_data 表）- 使用年月格式
 if (!empty($input['startDate'])) {
     $startMonth = date('Y-m', strtotime($input['startDate']));
@@ -81,7 +90,8 @@ if (!empty($input['endDate'])) {
 // 季度筛选 - 使用年月格式
 if (!empty($input['quarter']) && empty($input['startDate']) && empty($input['endDate'])) {
     $quarter = intval($input['quarter']);
-    $year = date('Y');
+    // ========== 使用选择的年度，如果没有选择年度则使用当前年度 ==========
+    $year = $selectedYear ?: date('Y');
     
     switch ($quarter) {
         case 1:
@@ -277,6 +287,7 @@ try {
         'records' => $processedRecords,
         'totalRecords' => $monthlyStats['totalApplyCount'] ?? 0,
         'filters' => [
+            'annual' => $selectedYear,
             'quarter' => $input['quarter'] ?? null,
             'quarterRange' => isset($startMonth) ? $startMonth . ' 至 ' . $endMonth : null,
             'note' => '季度筛选仅应用于补贴申领数据，建档人数统计为全部数据'

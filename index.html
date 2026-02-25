@@ -690,6 +690,23 @@
         padding-right: 35px;
       }
 
+      /* 年度选择器样式 */
+      #annual-select {
+        appearance: none;
+        padding: 12px;
+        border: 2px solid #4ca1af;
+        border-radius: 8px;
+        font-size: 16px;
+        background: white;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234ca1af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        background-size: 16px;
+        padding-right: 35px;
+        width: 100%;
+      }
+
+      /* 季度选择器样式 */
       #quarter-select {
         appearance: none;
         padding: 12px;
@@ -702,7 +719,35 @@
         background-position: right 10px center;
         background-size: 16px;
         padding-right: 35px;
+        width: 100%;
       }
+
+      /* 容器样式 */
+      .form-group {
+        margin-bottom: 15px;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: bold;
+        color: #333;
+      }
+
+      /* 确保两个选择器在一行 */
+      .form-group > div:first-of-type {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      /* 响应式设计：在小屏幕上垂直排列 */
+      @media (max-width: 768px) {
+        .form-group > div:first-of-type {
+          flex-direction: column;
+        }
+      }
+
       /* 表格头部布局 */
       .table-header {
         display: flex;
@@ -1243,14 +1288,22 @@
                 </div>
 
                 <div class="form-group">
-                  <label>季度查询</label>
-                  <select id="quarter-select">
-                    <option value="">全部季度</option>
-                    <option value="1">第一季度 (1-3月)</option>
-                    <option value="2">第二季度 (4-6月)</option>
-                    <option value="3">第三季度 (7-9月)</option>
-                    <option value="4">第四季度 (10-12月)</option>
-                  </select>
+                  <label>信息查询</label>
+                  <div style="display: flex; gap: 10px; align-items: center">
+                    <select id="annual-select" style="flex: 1">
+                      <option value="2025">2025年</option>
+                      <option value="2026">2026年</option>
+                      <option value="2027">2027年</option>
+                      <option value="2028">2028年</option>
+                    </select>
+                    <select id="quarter-select" style="flex: 2">
+                      <option value="">全部季度</option>
+                      <option value="1">第一季度 (1-3月)</option>
+                      <option value="2">第二季度 (4-6月)</option>
+                      <option value="3">第三季度 (7-9月)</option>
+                      <option value="4">第四季度 (10-12月)</option>
+                    </select>
+                  </div>
                   <div style="font-size: 12px; color: #666; margin-top: 5px">
                     选择季度后，时间范围将自动禁用
                   </div>

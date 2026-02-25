@@ -100,6 +100,12 @@ function initStatsPage() {
         loadStatsData();
     });
 
+    // 在 initStatsPage 函数中添加年度选择监听
+    document.getElementById('annual-select').addEventListener('change', function() {
+        currentPage = 1;
+        loadStatsData();
+    });
+    
     // 绑定季度选择事件
     document.getElementById('quarter-select').addEventListener('change', function() {
         currentPage = 1;
@@ -140,9 +146,10 @@ function loadStatsData() {
     
     const birthOrder = document.getElementById('stats-birth-order').value;
     const quarter = document.getElementById('quarter-select').value;
+    const annual = document.getElementById('annual-select').value; // 添加年度选择
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;
-    const keyword = document.getElementById('keyword-search').value;
+    const keyword = document.getElementById('keyword-search').value.trim();
     
     showLoading();
     
@@ -151,6 +158,7 @@ function loadStatsData() {
         kindergarten: kindergartenValue,
         birthOrder: birthOrder,
         quarter: quarter,
+        annual: annual, // 添加年度参数
         keyword: keyword,
         page: currentPage,
         pageSize: pageSize
@@ -258,10 +266,11 @@ function formatCurrency(amount) {
     return '¥' + (amount || 0).toLocaleString('zh-CN');
 }
 
-// 在 resetFilters 函数中重置季度选择
+// 在 resetFilters 函数中重置年度选择
 function resetFilters() {
     document.getElementById('stats-kindergarten-select').value = '';
     document.getElementById('stats-birth-order').value = '';
+    document.getElementById('annual-select').value = new Date().getFullYear().toString(); // 重置为当前年度
     document.getElementById('quarter-select').value = '';
     document.getElementById('keyword-search').value = '';
     
