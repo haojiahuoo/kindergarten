@@ -1340,17 +1340,14 @@ function createEditModal(person) {
         <div id="edit-person-modal" class="modal" style="display:block; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.5);">
             <div class="modal-content" style="background-color:#fefefe; margin:5% auto; padding:20px; border:1px solid #888; width:80%; max-width:600px; border-radius:8px;">
                 <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ddd; padding-bottom:10px; margin-bottom:20px;">
-                    <h2 style="margin:0; color:#333;">编辑人员信息</h2>
+                    <h2 style="margin:0; color:#333;">编辑 ${person.childName || ''} 信息</h2>
                     <span class="close" onclick="closeEditModal()" style="font-size:28px; font-weight:bold; cursor:pointer; color:#aaa;">&times;</span>
                 </div>
                 
                 <div class="modal-body">
                     <form id="edit-person-form">
-                        <div class="form-group" style="margin-bottom:15px;">
-                            <label style="display:block; margin-bottom:5px; font-weight:bold;">孩子姓名:</label>
-                            <input type="text" id="edit-child-name" value="${person.childName || ''}" 
-                                   style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
-                        </div>
+                        <!-- 添加隐藏的孩子姓名字段，用于提交 -->
+                        <input type="hidden" id="edit-child-name-hidden" value="${person.childName || ''}">
                         
                         <div class="form-group" style="margin-bottom:15px;">
                             <label style="display:block; margin-bottom:5px; font-weight:bold;">孩次:</label>
@@ -1386,10 +1383,20 @@ function createEditModal(person) {
                                    style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
                         </div>
                         
-                        <div class="form-group" style="margin-bottom:20px;">
+                        <div class="form-group" style="margin-bottom:15px;">
                             <label style="display:block; margin-bottom:5px; font-weight:bold;">母亲身份证号:</label>
                             <input type="text" id="edit-mother-id" value="${person.motherId || ''}" 
                                    style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                        </div>
+                        
+                        <!-- 所在幼儿园 - 可编辑 -->
+                        <div class="form-group" style="margin-bottom:20px;">
+                            <label style="display:block; margin-bottom:5px; font-weight:bold;">所在幼儿园:</label>
+                            <select id="edit-kindergarten" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                                <option value="">请选择幼儿园</option>
+                                <!-- 这里会通过JavaScript动态加载幼儿园列表 -->
+                            </select>
+                            <small style="color:#666;">选择孩子所在的幼儿园</small>
                         </div>
                         
                         <div id="edit-error-message" style="color:red; margin-bottom:15px; display:none;"></div>
@@ -1412,6 +1419,41 @@ function createEditModal(person) {
     
     // 添加到页面
     document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // 加载幼儿园列表并设置当前值
+    loadKindergartensForEdit(person.kindergarten);
+}
+
+// 加载幼儿园列表到编辑模态框
+function loadKindergartensForEdit(currentKindergarten) {
+    fetch('http://localhost/kindergarten/getKindergartens.php')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const select = document.getElementById('edit-kindergarten');
+                if (!select) return;
+                
+                // 清空并添加默认选项
+                select.innerHTML = '<option value="">请选择幼儿园</option>';
+                
+                // 添加所有幼儿园
+                data.kindergartens.forEach(k => {
+                    const option = document.createElement('option');
+                    option.value = k.name; // 使用幼儿园名称作为值
+                    option.textContent = k.name;
+                    
+                    // 如果是当前幼儿园，设置为选中
+                    if (k.name === currentKindergarten) {
+                        option.selected = true;
+                    }
+                    
+                    select.appendChild(option);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('加载幼儿园列表失败:', error);
+        });
 }
 
 // 关闭编辑模态框
@@ -1422,16 +1464,18 @@ function closeEditModal() {
     }
 }
 
-// 提交编辑信息 - 添加更好的错误处理
+// 提交编辑信息
 function submitEditPerson(originalChildId) {
-    // 获取表单数据
-    const childName = document.getElementById('edit-child-name').value.trim();
+    // 从隐藏字段获取孩子姓名
+    const childName = document.getElementById('edit-child-name-hidden').value.trim();
+    
     const birthOrder = document.getElementById('edit-birth-order').value;
     const childId = document.getElementById('edit-child-id').value.trim();
     const fatherName = document.getElementById('edit-father-name').value.trim();
     const fatherId = document.getElementById('edit-father-id').value.trim();
     const motherName = document.getElementById('edit-mother-name').value.trim();
     const motherId = document.getElementById('edit-mother-id').value.trim();
+    const kindergarten = document.getElementById('edit-kindergarten').value;
     
     // 验证必填字段
     const errorMessage = document.getElementById('edit-error-message');
@@ -1471,6 +1515,11 @@ function submitEditPerson(originalChildId) {
         return;
     }
     
+    if (!kindergarten) {
+        showEditMessage('请选择所在幼儿园');
+        return;
+    }
+    
     // 验证身份证格式
     if (childId && (childId.length !== 18 || !/^\d{17}[\dX]$/.test(childId))) {
         showEditMessage('孩子身份证号格式不正确');
@@ -1496,7 +1545,8 @@ function submitEditPerson(originalChildId) {
         fatherName: fatherName,
         fatherId: fatherId,
         motherName: motherName,
-        motherId: motherId
+        motherId: motherId,
+        kindergarten: kindergarten
     };
     
     console.log('提交更新数据:', updateData);
@@ -1511,12 +1561,10 @@ function submitEditPerson(originalChildId) {
         body: JSON.stringify(updateData)
     })
     .then(async res => {
-        // 先获取响应文本
         const responseText = await res.text();
         console.log('原始响应:', responseText);
         
         try {
-            // 尝试解析为JSON
             const data = JSON.parse(responseText);
             return data;
         } catch (parseError) {
@@ -1534,17 +1582,28 @@ function submitEditPerson(originalChildId) {
             // 关闭模态框
             closeEditModal();
             
-            // 只更新修改的那条记录，不重新查询
-            updateSingleRecordInView(data.updatedRecord || {
-                childId: childId, // 新的身份证号
+            // 构造更新后的记录
+            const updatedRecord = {
+                childId: childId,
                 childName: childName,
                 birthOrder: birthOrder,
                 fatherName: fatherName,
                 fatherId: fatherId,
                 motherName: motherName,
-                motherId: motherId
-            }, originalChildId);
+                motherId: motherId,
+                kindergarten: kindergarten
+            };
             
+            console.log('更新后的记录:', updatedRecord);
+
+            // 只更新修改的那条记录
+            updateSingleRecordInView(updatedRecord, originalChildId);
+
+            // 可选：重新执行查询以确保数据同步
+            if (typeof queryPersonData === 'function') {
+                queryPersonData(); // 调用现有的查询函数
+            }
+                
         } else {
             showPersonStatus('更新失败', 0);
             showEditMessage(data.message || '更新失败');
@@ -1562,7 +1621,7 @@ function submitEditPerson(originalChildId) {
     });
 }
 
-// 更新单条记录在视图中的显示
+// 更新单条记录在视图中的显示 - 添加幼儿园字段
 function updateSingleRecordInView(updatedRecord, originalChildId) {
     const tbody = document.getElementById('preview-body-person');
     const rows = tbody.getElementsByTagName('tr');
@@ -1579,8 +1638,14 @@ function updateSingleRecordInView(updatedRecord, originalChildId) {
             row.cells[6].textContent = updatedRecord.motherName || ''; // 母亲姓名
             row.cells[7].textContent = formatIdNumber(updatedRecord.motherId); // 母亲身份证
             
+            // 如果表格中有幼儿园列（假设在第8列，索引为8），需要更新
+            if (row.cells[8]) {
+                row.cells[8].textContent = updatedRecord.kindergarten || ''; // 幼儿园名称
+            }
+            
             // 更新编辑按钮的onclick事件，使用新的身份证号
-            const editButton = row.cells[9].querySelector('.btn-info');
+            const actionCell = row.cells[row.cells.length - 1]; // 最后一列是操作列
+            const editButton = actionCell ? actionCell.querySelector('.btn-info') : null;
             if (editButton) {
                 editButton.setAttribute('onclick', `editPerson('${updatedRecord.childId}')`);
             }
@@ -1619,5 +1684,15 @@ document.addEventListener('click', function(event) {
     const modal = document.getElementById('edit-person-modal');
     if (modal && event.target === modal) {
         closeEditModal();
+    }
+});
+
+// 添加键盘ESC键关闭模态框
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        const modal = document.getElementById('edit-person-modal');
+        if (modal) {
+            closeEditModal();
+        }
     }
 });
