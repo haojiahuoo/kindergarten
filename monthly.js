@@ -5,8 +5,8 @@
 
 // ==================== 全局变量声明 ====================
 let excelData = [];           // 存储从Excel解析的数据
-let selectedYear = 2025;      // 当前选中的年份
-let selectedMonth = 7;        // 当前选中的月份
+let selectedYear = 2026;      // 当前选中的年份
+let selectedMonth = 1;        // 当前选中的月份
 let validationResults = [];   // 存储数据验证结果
 let holidayData = [];         // 存储节假日数据
 
@@ -545,8 +545,15 @@ function checkFeeStandard(className, monthlyFee) {
  */
 async function loadHolidayData() {
     try {
-        const res = await fetch('holidays2025.json');
-        holidayData = await res.json();
+        const res = await fetch('holidays2026.json');
+        const rawData = await res.json();
+        
+        if (!Array.isArray(rawData)) {
+            throw new Error('数据格式错误：期望数组');
+        }
+        
+        holidayData = rawData;
+        console.log(`已加载 ${holidayData.length} 条节假日配置`);
     } catch (err) {
         console.error('加载节假日数据失败:', err);
         holidayData = [];
@@ -554,30 +561,38 @@ async function loadHolidayData() {
 }
 
 /**
+ * 格式化日期为 YYYY-MM-DD（本地时间）
+ */
+function formatDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+/**
  * 判断某一天是否是工作日
- * @param {Date} date - 日期对象
- * @returns {boolean} 是否是工作日
  */
 function isWorkday(date) {
-    const dStr = date.toISOString().slice(0, 10); // "YYYY-MM-DD"
-    const dayInfo = holidayData.find(h => h.day === dStr);
+    const dStr = formatDate(date); // 修复时区问题
+    const dayInfo = holidayData.find(h => h.date === dStr);
+    
     if (!dayInfo) {
-        // JSON 中没有记录的，默认周一到周五为工作日
         const wd = date.getDay();
-        return wd !== 0 && wd !== 6; // 0=周日, 6=周六
+        return wd !== 0 && wd !== 6; // 周一到周五是工作日
     }
-    return dayInfo.type === 0; // 0=工作日
+    
+    // type === 0 是工作日（调休上班），其他都是休息
+    return dayInfo.type === 0;
 }
 
 /**
  * 计算指定年月工作日数量
- * @param {number} year - 年份
- * @param {number} month - 月份
- * @returns {number} 工作日天数
  */
 function calculateWorkdays(year, month) {
     let count = 0;
     const daysInMonth = new Date(year, month, 0).getDate();
+    
     for (let d = 1; d <= daysInMonth; d++) {
         const dt = new Date(year, month - 1, d);
         if (isWorkday(dt)) count++;
